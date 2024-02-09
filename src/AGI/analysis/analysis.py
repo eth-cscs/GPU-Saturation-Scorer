@@ -86,7 +86,7 @@ class GPUMetricsAnalyzer:
                 # Important to store a copy of the dataframe here
                 # Otherwise, the dataframe will be modified in-place
                 # and the summary will fail
-                df = self.data[gpu].agg(['median', 'min', 'max'])
+                df = self.data[gpu].agg(['mean', 'median', 'min', 'max'])
 
                 # Format df in human-readable format (this modifies df in-place)
                 formatDataFrame(df)
