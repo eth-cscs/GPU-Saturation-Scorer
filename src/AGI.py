@@ -1,52 +1,16 @@
-import sys
+# Import modules
 import os
-
-# Set-up DCGM library path
-try: 
-    # Check if DCGM is already in the path
-    import pydcgm
-    import DcgmReader
-    import dcgm_fields
-    import dcgm_structs
-    import pydcgm
-    import dcgm_structs
-    import dcgm_fields
-    import dcgm_agent
-    import dcgmvalue
-
-except ImportError:
-    # Look for DCGM_HOME variable
-    if 'DCGM_HOME' in os.environ:
-        dcgm_bingings = os.path.join(os.environ['DCGM_HOME'], 'bindings', 'python3')
-    # Look for DCGM_HOME in /usr/local
-    elif os.path.exists('/usr/local/dcgm/bindings/python3'):
-        dcgm_bindings = '/usr/local/dcgm/bindings/python3'
-    # Throw error
-    else:
-        raise Exception('Unable to find DCGM_HOME. Please set DCGM_HOME environment variable to the location of the DCGM installation.')
-    
-    sys.path.append(dcgm_bindings)
-
-    # Import DCGM modules
-    import pydcgm
-    import DcgmReader
-    import dcgm_fields
-    import dcgm_structs
-    import pydcgm
-    import dcgm_structs
-    import dcgm_fields
-    import dcgm_agent
-    import dcgmvalue
-
-# Import other modules
 import argparse
-
-# Import AGI modules
-from AGI.profiler import GPUMetricsProfiler
-from AGI.analysis import GPUMetricsAnalyzer
 
 # Driver functions for the profiler modules
 def profile(args):
+    from AGI.utils.checkImports import checkDCGMImports
+    # Check if DCGM bindings are available before importing AGI modules
+    # This raises an exception if DCGM is not available
+    checkDCGMImports()
+    # Import AGI modules
+    from AGI.profiler.GPUMetricsProfiler import GPUMetricsProfiler
+    
     # Check if job was called via SLURM
     # We need this in order to extract information regarding which GPUs to monitor from the environment
     try:
@@ -55,8 +19,12 @@ def profile(args):
         # It is important to set --gpus-per-task=1 in the SLURM script for this to work
         gpuIds = [int(gpu) for gpu in os.environ['SLURM_STEP_GPUS'].strip().split(',')]
     except KeyError:
-        raise Exception('The job must be submitted via SLURM!')
-        
+        # Hack - if --gpus-per-task=1 is not set, we can still use SLURM_PROCID mod 4 to determine the GPU ID
+        print("WARNING: SLURM environment variables not found. Using SLURM_PROCID mod 4 to determine GPU ID.")
+        jobId = os.environ['SLURM_JOB_ID']
+        procId = int(os.environ['SLURM_PROCID'])
+        gpuIds = [procId%4]
+
     # Set default output file if not specified
     if args.output_file is None:
         args.output_file = f"AGI_{jobId}.sqlite"
@@ -78,6 +46,7 @@ def profile(args):
     return 0
 
 def analyze(args):
+    from AGI.analysis.analysis import GPUMetricsAnalyzer
     # Your analysis function implementation
     analyzer = GPUMetricsAnalyzer(
                 inputFile=args.input_file,
