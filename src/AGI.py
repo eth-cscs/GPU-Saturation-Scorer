@@ -77,19 +77,19 @@ if __name__ == '__main__':
     # Profile subcommand
     parser_profile = subparsers.add_parser('profile', help='Profile command help')
     parser_profile.add_argument('command', metavar='command', type=str, nargs='+', help='Wrapped command to run')
-    parser_profile.add_argument('--max-runtime', metavar='max-runtime', type=int, default=60, help='Maximum runtime of the wrapped command in seconds')
-    parser_profile.add_argument('--sampling-time', metavar='sampling-time', type=int, default=1000, help='Sampling time of GPU metrics in milliseconds')
-    parser_profile.add_argument('--verbose', action='store_true', help='Print verbose GPU metrics to stdout')
-    parser_profile.add_argument('--force-overwrite', action='store_true', help='Force overwrite of output file', default=False)
-    parser_profile.add_argument('--output-file', metavar='output-file', type=str, default=None, help='Output SQL file for collected GPU metrics', required=True)
+    parser_profile.add_argument('--max-runtime', '-m', metavar='max-runtime', type=int, default=60, help='Maximum runtime of the wrapped command in seconds')
+    parser_profile.add_argument('--sampling-time', '-s', metavar='sampling-time', type=int, default=1000, help='Sampling time of GPU metrics in milliseconds')
+    parser_profile.add_argument('--verbose', '-v', action='store_true', help='Print verbose GPU metrics to stdout')
+    parser_profile.add_argument('--force-overwrite', '-f', action='store_true', help='Force overwrite of output file', default=False)
+    parser_profile.add_argument('--output-file', '-o', metavar='output-file', type=str, default=None, help='Output SQL file for collected GPU metrics', required=True)
 
     # Analyze subcommand
     parser_analyze = subparsers.add_parser('analyze', help='Analyze command help')
-    parser_analyze.add_argument('--input-file', type=str, required=True, help='Input file for analysis')
-    parser_analyze.add_argument('--verbose', action='store_true', help='Print verbose GPU metrics to stdout')
-    parser_analyze.add_argument('--detect-outliers', type=str, default='leading', choices=['leading', 'trailing', 'none', 'all'],
-                                 help='Heuristically detect outlier samples and discard them from the analysis')
-    
+    parser_analyze.add_argument('--input-file', '-i', type=str, required=True, help='Input file for analysis')
+    parser_analyze.add_argument('--verbose', '-v', action='store_true', help='Print verbose GPU metrics to stdout')
+    parser_analyze.add_argument('--detect-outliers', '-d', type=str, default='leading', choices=['leading', 'trailing', 'none', 'all'],
+                                help='Heuristically detect outlier samples and discard them from the analysis')
+
     # Parse arguments
     args = parser.parse_args()
 
