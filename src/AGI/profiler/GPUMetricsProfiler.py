@@ -14,7 +14,7 @@ import sys
 
 # Main class used to run AGI
 class GPUMetricsProfiler:
-    def __init__(self, command: str, gpuIds: list, outputFile: str, forceOverwrite: bool, samplingTime: int, maxRuntime: int, verbose: bool) -> None:
+    def __init__(self, gpuIds: list, samplingTime: int, maxRuntime: int) -> None:
         
         # Check if sampling time is too low
         if samplingTime < 100:
@@ -22,12 +22,10 @@ class GPUMetricsProfiler:
             samplingTime = 100
 
         # Store options
-        self.command = command
         self.gpuIds = gpuIds
-        self.outputFile = outputFile
         self.samplingTime = samplingTime
         self.maxRuntime = maxRuntime
-        self.verbose = verbose
+        self.metrics = []
         
         # Get hostname
         self.hostname = socket.gethostname()
@@ -37,12 +35,8 @@ class GPUMetricsProfiler:
     
         # Initialize DCGM reader
         self.dr = DcgmReader(fieldIds=metricIds, gpuIds=self.gpuIds, fieldGroupName=self.fieldGroupName, updateFrequency=int(self.samplingTime*1000)) # Convert from milliseconds to microseconds
-
-        # Initialize io module
-        self.io = MetricsDataIO(outputFile, readOnly=False, forceOverwrite=forceOverwrite)
             
-    def run(self):
-
+    def run(self, command: str) -> None:
         # Record start time
         start_time = time.time()
 
@@ -50,9 +44,14 @@ class GPUMetricsProfiler:
         sys.stdout.flush()
 
         # Redirect stdout and stderr to output file if specified
-        process = subprocess.Popen(self.command, shell=True)
+        process = subprocess.Popen(command, shell=True)
 
+        # Initialize metrics dictionary
         metrics = {}
+        
+        # Throw away first data point
+        data = self.dr.GetLatestGpuValuesAsFieldIdDict()
+        
         # Profiling loop with timeout check
         while self.maxRuntime <= 0 or time.time() - start_time < self.maxRuntime:
             
@@ -96,8 +95,11 @@ class GPUMetricsProfiler:
             process.kill()
             print("Process killed due to timeout.")
             
-        # Dump metrics to output file
-        self.io.dump(metrics)
+        # Append collected profiling metrics
+        self.metrics.append(metrics)
+
+    def getCollectedData(self) -> list:
+        return self.metrics
     
     def get_gpu_name(self, gpuId):
         return f"{self.hostname}_gpu:{gpuId}"

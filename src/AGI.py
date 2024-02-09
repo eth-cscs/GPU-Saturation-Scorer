@@ -5,6 +5,8 @@ import argparse
 # Driver functions for the profiler modules
 def profile(args):
     from AGI.utils.checkImports import checkDCGMImports
+    from AGI.io.MetricsDataIO import MetricsDataIO
+    
     # Check if DCGM bindings are available before importing AGI modules
     # This raises an exception if DCGM is not available
     checkDCGMImports()
@@ -31,17 +33,24 @@ def profile(args):
         
     # Create profiler object
     profiler = GPUMetricsProfiler(
-        command=args.command,
         gpuIds=gpuIds, # Need to pass a list of GPU IDs
-        outputFile=args.output_file,
-        forceOverwrite=args.force_overwrite,
         samplingTime=args.sampling_time,
         maxRuntime=args.max_runtime,
-        verbose=args.verbose
     )
 
-    # Run profiler
-    profiler.run()
+    # Run workload
+    profiler.run(args.command)
+
+    profiler.run(args.command)
+
+    # Get collected metrics
+    metrics = profiler.getCollectedData()
+
+    # Create IO handler
+    IO = MetricsDataIO(args.output_file, readOnly=False, forceOverwrite=args.force_overwrite)
+
+    # Dump data to SQL DB
+    IO.dump(metrics)
     
     return 0
 

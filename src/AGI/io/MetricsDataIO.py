@@ -33,7 +33,20 @@ class MetricsDataIO:
         return wrapper
 
     @checkReadOnly
-    def dump(self, data: dict):
+    def dump(self, data: list) -> None:
+        # Check if data is empty
+        if len(data) == 0:
+            return
+        
+        # If only one epoch has been recorded, no suffix is needed
+        if len(data) == 1:
+            self.dumpEpoch(data[0])
+        else:
+            # If multiple epochs have been recorded, a suffix is needed
+            for i, epoch in enumerate(data):
+                self.dumpEpoch(epoch, f"_epoch:{i}")
+        
+    def dumpEpoch(self, data: dict, epoch : str = "") -> None:
         # Create database connection
         for tableName, tableData in data.items():
             # Covert tableData to DataFrame
@@ -47,8 +60,8 @@ class MetricsDataIO:
 
             # Write data to database
             with sqlite3.connect(self.dbFile, timeout=self.timeout) as conn:
-                df.to_sql(tableName, conn, if_exists='replace', index=False)
-    
+                df.to_sql(tableName + epoch, conn, if_exists='replace', index=False)
+
     # Loads all tables into a dictionarz of pandas DataFrames
     def load(self):
         # Create database connection
