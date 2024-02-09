@@ -60,7 +60,7 @@ def analyze(args):
     analyzer = GPUMetricsAnalyzer(
                 inputFile=args.input_file,
                 verbose=args.verbose,
-                detectWarmup=args.no_detect_warmup
+                detectOutliers=args.detect_outliers
                 )
     
     analyzer.summary()
@@ -87,8 +87,9 @@ if __name__ == '__main__':
     parser_analyze = subparsers.add_parser('analyze', help='Analyze command help')
     parser_analyze.add_argument('--input-file', type=str, required=True, help='Input file for analysis')
     parser_analyze.add_argument('--verbose', action='store_true', help='Print verbose GPU metrics to stdout')
-    parser_analyze.add_argument('--no-detect-warmup', action='store_false', help='Disable heuristical detection and removal of samples collected during GPU warmup', default=True)
-
+    parser_analyze.add_argument('--detect-outliers', type=str, default='leading', choices=['leading', 'trailing', 'none', 'all'],
+                                 help='Heuristically detect outlier samples and discard them from the analysis')
+    
     # Parse arguments
     args = parser.parse_args()
 
