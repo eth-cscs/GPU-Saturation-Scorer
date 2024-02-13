@@ -39,9 +39,16 @@ def profile(args):
     )
 
     # Run workload
-    profiler.run(args.command)
+    if args.wrap:
+        profiler.run(args.wrap)
+    else:
+        # Open args.script
+        with open(args.script) as f:
+            cmds = f.read().split('\n')
 
-    profiler.run(args.command)
+        for cmd in cmds:
+            if cmd and not cmd.startswith('#'):
+                profiler.run(cmd)
 
     # Get collected metrics
     metrics = profiler.getCollectedData()
@@ -76,9 +83,13 @@ if __name__ == '__main__':
 
     # Profile subcommand
     parser_profile = subparsers.add_parser('profile', help='Profile command help')
-    parser_profile.add_argument('command', metavar='command', type=str, nargs='+', help='Wrapped command to run')
+    # Need to set up mutually exclusive group for inputs
+    group = parser_profile.add_mutually_exclusive_group(required=True)
+    group.add_argument('--wrap', '-w', metavar='wrap', type=str, nargs='+', help='Wrapped command to run')
+    group.add_argument('--script', '-s', metavar='script', type=str, help='Wrap all commands in a script')
+    # Standard flags
     parser_profile.add_argument('--max-runtime', '-m', metavar='max-runtime', type=int, default=60, help='Maximum runtime of the wrapped command in seconds')
-    parser_profile.add_argument('--sampling-time', '-s', metavar='sampling-time', type=int, default=1000, help='Sampling time of GPU metrics in milliseconds')
+    parser_profile.add_argument('--sampling-time', '-t', metavar='sampling-time', type=int, default=1000, help='Sampling time of GPU metrics in milliseconds')
     parser_profile.add_argument('--verbose', '-v', action='store_true', help='Print verbose GPU metrics to stdout')
     parser_profile.add_argument('--force-overwrite', '-f', action='store_true', help='Force overwrite of output file', default=False)
     parser_profile.add_argument('--output-file', '-o', metavar='output-file', type=str, default=None, help='Output SQL file for collected GPU metrics', required=True)
