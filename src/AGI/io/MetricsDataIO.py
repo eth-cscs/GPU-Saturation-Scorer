@@ -27,7 +27,7 @@ class MetricsDataIO:
     def checkReadOnly(func):
         def wrapper(self, *args, **kwargs):
             if self.readOnly:
-                raise Exception("MetricsDataIO initialiyed in read-only mode!")
+                raise Exception("MetricsDataIO initialized in read-only mode!")
             else:
                 return func(self, *args, **kwargs)
         return wrapper
@@ -64,6 +64,10 @@ class MetricsDataIO:
 
     # Loads all tables into a dictionarz of pandas DataFrames
     def load(self):
+        # Check if database exists
+        if not os.path.exists(self.dbFile):
+            raise Exception(f"Database file {self.dbFile} does not exist!")
+        
         # Create database connection
         with sqlite3.connect(self.dbFile) as conn:
             # Get list of tables
