@@ -27,19 +27,3 @@ demangledMetricNames = {
     1009: 'PCIE_TX_BYTES',
     1010: 'PCIE_RX_BYTES'}
 
-# Downsample a 1D array by averaging to n samples
-def downsampleMetrics(data, n):
-    # Special case: n <= 0 or len(data) = 0 -> return empty list
-    if n <= 0 or len(data) == 0:
-        return []
-    # Special case: n = 1 or len(data) = 1 -> there is no downsampling to be done
-    elif n == 1 or len(data) == n:
-        return data
-
-    # Split the array into n segments
-    segments = np.array_split(np.array(data), n)
-
-    # Compute the mean of each segment
-    downsampled = [segment.mean() for segment in segments]
-
-    return downsampled

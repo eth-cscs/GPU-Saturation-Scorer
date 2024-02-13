@@ -5,10 +5,12 @@ import pandas as pd
 from AGI.profiler.metrics import demangledMetricNames
 
 # Format pandas DataFrames to human-readable format
-def formatDataFrame(df: pd.DataFrame) -> None:
+def formatDataFrame(df: pd.DataFrame) -> pd.DataFrame:
+    df_out = pd.DataFrame()
     for metric in demangledMetricNames.values():
         if metric in df.columns:
-            df[metric] = df[metric].apply(metricNames2Formats[metric])
+            df_out[metric] = df[metric].apply(metricNames2Formats[metric])
+    return df_out
 
 # Format floating point number to percentage with 2 decimal places
 def formatPercent(value):

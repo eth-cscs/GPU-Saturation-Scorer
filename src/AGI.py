@@ -2,7 +2,7 @@
 import os
 import argparse
 
-# Driver functions for the profiler modules
+# Driver functions for the profiler module
 def profile(args):
     from AGI.utils.checkImports import checkDCGMImports
     from AGI.io.MetricsDataIO import MetricsDataIO
@@ -61,20 +61,29 @@ def profile(args):
     
     return 0
 
+# Driver function for the analyze module
 def analyze(args):
     from AGI.analysis.analysis import GPUMetricsAnalyzer
-    # Your analysis function implementation
-    analyzer = GPUMetricsAnalyzer(
-                inputFile=args.input_file,
-                verbose=args.verbose,
-                detectOutliers=args.detect_outliers
-                )
     
-    analyzer.summary()
+    # Instantiate analyzer class
+    analyzer = GPUMetricsAnalyzer(inputFile=args.input_file)
+
+    # If necessary, remove outliers
+    if args.detect_outliers != 'none':
+        # This modifies the analyzer object in-place
+        analyzer.detectOutlierSamples(args.detect_outliers)
+
+    # Print summary of metrics
+    if args.summary:
+        analyzer.summary(args.verbose)
+    
+    # Print time-series of metrics
+    if args.plot_time_series:
+        analyzer.plotTimeSeries()
+    
     return 0
 
 if __name__ == '__main__':
-
     # Main parser
     parser = argparse.ArgumentParser(description='Monitor and analyze resource usage of a workload with AGI')
 
@@ -97,9 +106,12 @@ if __name__ == '__main__':
     # Analyze subcommand
     parser_analyze = subparsers.add_parser('analyze', help='Analyze command help')
     parser_analyze.add_argument('--input-file', '-i', type=str, required=True, help='Input file for analysis')
+    parser_analyze.add_argument('--summary', '-s', type=bool, help='Print summary of metrics. Default is True.')
     parser_analyze.add_argument('--verbose', '-v', action='store_true', help='Print verbose GPU metrics to stdout')
     parser_analyze.add_argument('--detect-outliers', '-d', type=str, default='leading', choices=['leading', 'trailing', 'none', 'all'],
                                 help='Heuristically detect outlier samples and discard them from the analysis')
+    parser_analyze.add_argument('--plot-time-series', '-pts', action='store_true', help='Generate time-series plots of metrics.')
+    parser_analyze.add_argument('--plot-load-balancing', '-plb', action='store_true', help='Generate load-balancing plots of metrics.')
 
     # Parse arguments
     args = parser.parse_args()
