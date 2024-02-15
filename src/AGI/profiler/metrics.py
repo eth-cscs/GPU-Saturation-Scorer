@@ -1,7 +1,14 @@
 import numpy as np
 
-# List of field IDs to monitor and corresponding demangled names
 
+# List of metric names to monitor
+gpuActivityMetrics = ["DEV_GPU_UTIL", "SM_ACTIVE", "SM_OCCUPANCY", "DRAM_ACTIVE"]
+flopActivityMetrics = ["PIPE_TENSOR_CORE_ACTIVE", "PIPE_FP64_ACTIVE", "PIPE_FP32_ACTIVE", "PIPE_FP16_ACTIVE"]
+memoryActivityMetrics = ["PCIE_TX_BYTES", "PCIE_RX_BYTES"]
+allMetrics = gpuActivityMetrics + flopActivityMetrics + memoryActivityMetrics
+
+
+# List of field IDs to monitor
 metricIds = [
             203,    # DCGM_FI_DEV_GPU_UTIL
             1002,   # DCGM_FI_PROF_SM_ACTIVE
@@ -15,6 +22,7 @@ metricIds = [
             1010    # DCGM_FI_PROF_PCIE_RX_BYTES
             ]
             
+# Map of field IDs to metric names
 demangledMetricNames = {
     203: 'DEV_GPU_UTIL',
     1002: 'SM_ACTIVE',

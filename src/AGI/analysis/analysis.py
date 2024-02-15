@@ -40,7 +40,10 @@ class GPUMetricsAnalyzer:
             return np.zeros(len(y), dtype=bool)
         
         return labels == outlierCluster
-    
+
+    def plotUsageMap(self):
+        self.plotter.plotUsageMap()
+         
     def plotTimeSeries(self):
         self.plotter.plotTimeSeries()
     

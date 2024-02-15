@@ -77,9 +77,13 @@ def analyze(args):
     if args.summary:
         analyzer.summary(args.verbose)
     
-    # Print time-series of metrics
+    # Plot time-series of metrics
     if args.plot_time_series:
         analyzer.plotTimeSeries()
+
+    # Plot load-balancing of metrics
+    if args.plot_load_balancing:
+        analyzer.plotUsageMap()
     
     return 0
 
