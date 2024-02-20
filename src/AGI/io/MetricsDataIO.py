@@ -48,18 +48,18 @@ class MetricsDataIO:
         
     def dumpEpoch(self, data: dict, epoch : str = "") -> None:
         # Create database connection
-        for tableName, tableData in data.items():
-            # Covert tableData to DataFrame
-            df = pd.DataFrame(tableData)
+        with sqlite3.connect(self.dbFile, timeout=self.timeout) as conn:
+            for tableName, tableData in data.items():
+                # Covert tableData to DataFrame
+                df = pd.DataFrame(tableData)
 
-            # Convert DEV_GPU_UTIL to percentage instead of integer percentage
-            # This is the only percentage metric that is not reported as a float between 0 and 1
-            # I don't know why, but it is how Nvidia decided to do it
-            if 'DEV_GPU_UTIL' in df.columns:
-                df['DEV_GPU_UTIL'] = df['DEV_GPU_UTIL'].astype(float) / 100.0
+                # Convert DEV_GPU_UTIL to percentage instead of integer percentage
+                # This is the only percentage metric that is not reported as a float between 0 and 1
+                # I don't know why, but it is how Nvidia decided to do it
+                if 'DEV_GPU_UTIL' in df.columns:
+                    df['DEV_GPU_UTIL'] = df['DEV_GPU_UTIL'].astype(float) / 100.0
 
-            # Write data to database
-            with sqlite3.connect(self.dbFile, timeout=self.timeout) as conn:
+                # Write data to database
                 df.to_sql(tableName + epoch, conn, if_exists='replace', index=False)
 
     # Loads all tables into a dictionarz of pandas DataFrames
@@ -83,8 +83,8 @@ class MetricsDataIO:
     @checkReadOnly
     def dumpMetadata(self):
         # Write metadata to file
-        with self.lock:
-            with open(self.metadataFile, 'wb+') as f:
+        with self.lock.acquire():
+            with open(self.metadataFile, 'wb') as f:
                 pickle.dump(self.metadata, f)
     
     @checkReadOnly
@@ -105,7 +105,7 @@ class MetricsDataIO:
             return
         
         # Check if output file exists
-        with self.lock:
+        with self.lock.acquire():
             # Read metadata
             self.loadMetadata()
 
@@ -136,22 +136,3 @@ class MetricsDataIO:
                         # to avoid disk corruption
                         self.metadata['dbExists'] = True
                         self.dumpMetadata()
-
-    # Cleanup function to be called when the program exits
-    def cleanup(self):
-        # Remove lock file and metadata file
-        try:
-            # All processes will try to remove the lock file and metadata file
-            # Only one process will succeed, so a try/except block is needed
-            # to avoid an exception being raised by the other processes
-            # This is not a great solution as it is not multi-process safe,
-            # but it works for now
-            os.remove(self.lock.lock_file)
-            os.remove(self.metadataFile)
-        except:
-            pass
-
-    # Destructor
-    def __del__(self):
-        if not self.readOnly:
-            self.cleanup()
