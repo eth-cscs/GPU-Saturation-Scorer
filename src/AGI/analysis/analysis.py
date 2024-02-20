@@ -101,4 +101,9 @@ class GPUMetricsAnalyzer:
         
         # Print summary
         print("Summary of GPU metrics (average over all GPUs and all time steps)")
-        print(formatDataFrame(df).transpose().to_string())
+        print(formatDataFrame(df_agg).transpose().to_string())
+
+    def showGPUs(self):
+        print("Available GPUs:")
+        for gpu in sorted(list(self.data.keys())):
+            print(gpu)
