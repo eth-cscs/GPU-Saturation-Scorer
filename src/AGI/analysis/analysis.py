@@ -21,7 +21,7 @@ class GPUMetricsAnalyzer:
         assert X.shape == y.shape == (len(y), 1)
 
         # Compute two clusters
-        labels = KMeans(n_clusters=2).fit_predict(X, y)
+        labels = KMeans(n_clusters=2, n_init='auto').fit_predict(X, y)
 
         # Get mask for each cluster
         mask = labels == 0
@@ -84,14 +84,15 @@ class GPUMetricsAnalyzer:
 
     def summary(self, verbose):
         # If verbosity is enable, print metric for each GPU/EPOCH
-        for gpu in self.data.keys():
-            # Compute aggregate data
-            df = self.data[gpu].agg(['mean', 'median', 'min', 'max'])
+        if verbose:
+            for gpu in self.data.keys():
+                # Compute aggregate data
+                df = self.data[gpu].agg(['mean', 'median', 'min', 'max'])
 
-            # Print in human-readable format
-            print(f"GPU: {gpu}")
-            print("Metrics (average over all time steps)")
-            print(formatDataFrame(df).transpose().to_string(), end="\n\n")
+                # Print in human-readable format
+                print(f"GPU: {gpu}")
+                print("Metrics (average over all time steps)")
+                print(formatDataFrame(df).transpose().to_string(), end="\n\n")
 
         # Concatenate all dataframes
         df = pd.concat(self.data.values(), ignore_index=True, axis=0)
@@ -101,7 +102,7 @@ class GPUMetricsAnalyzer:
         
         # Print summary
         print("Summary of GPU metrics (average over all GPUs and all time steps)")
-        print(formatDataFrame(df_agg).transpose().to_string())
+        print(formatDataFrame(df).transpose().to_string())
 
     def showGPUs(self):
         print("Available GPUs:")
