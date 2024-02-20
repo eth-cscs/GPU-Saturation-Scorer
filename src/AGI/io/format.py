@@ -19,13 +19,13 @@ def formatPercent(value):
 # Format byte values to human-readable format
 def formatBytes(value):
     if value < 1024:
-        return f"{value} B"
+        return f"{value} B/s"
     elif value < 1024 ** 2:
-        return f"{value / 1024:.2f} KB"
+        return f"{value / 1024:.2f} KB/s"
     elif value < 1024 ** 3:
-        return f"{value / 1024 ** 2:.2f} MB"
+        return f"{value / 1024 ** 2:.2f} MB/s"
     else:
-        return f"{value / 1024 ** 3:.2f} GB"
+        return f"{value / 1024 ** 3:.2f} GB/s"
 
 metricNames2Formats = {
     "DEV_GPU_UTIL": formatPercent,
