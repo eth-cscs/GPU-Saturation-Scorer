@@ -7,7 +7,7 @@ from AGI.profiler.metrics import demangledMetricNames
 # Format pandas DataFrames to human-readable format
 def formatDataFrame(df: pd.DataFrame) -> pd.DataFrame:
     df_out = pd.DataFrame()
-    for metric in demangledMetricNames.values():
+    for metric in df.columns:
         if metric in df.columns:
             df_out[metric] = df[metric].apply(metricNames2Formats[metric])
     return df_out
