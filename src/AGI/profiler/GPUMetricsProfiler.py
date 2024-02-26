@@ -93,7 +93,7 @@ class GPUMetricsProfiler:
         if process.poll() is None: # 
             # Kill the process
             process.kill()
-            print("Process killed due to timeout.")
+            print("AGI: Process killed as it exceeded the maximum runtime.")
             
         # Append collected profiling metrics
         self.metrics.append(metrics)
