@@ -1,7 +1,6 @@
 import pandas as pd
 import sqlite3
 import os
-import filelock
 import pickle
 
 # This class is used to write data to a SQLite database
@@ -13,15 +12,9 @@ class MetricsDataIO:
         self.forceOverwrite = forceOverwrite
         self.timeout = timeout
         self.readOnly = readOnly
-        
-        # Set up process-synchronization objects
-        if not readOnly:
-            self.lock = filelock.FileLock(f"{self.dbFile}.lock")
-            self.metadataFile = f"{self.dbFile}.metadata"
-            self.metadata = {}
-        
-        # Check if output file exists
-        self.checkOutfileExists()
+
+        # Check for potential overwrite of output file
+        self.checkOverwrite()
 
     # Define decorator to check if database is read-only
     def checkReadOnly(func):
@@ -80,59 +73,13 @@ class MetricsDataIO:
             
             return dfs
     
-    @checkReadOnly
-    def dumpMetadata(self):
-        # Write metadata to file
-        with self.lock.acquire():
-            with open(self.metadataFile, 'wb') as f:
-                pickle.dump(self.metadata, f)
-    
-    @checkReadOnly
-    def loadMetadata(self):
-        # Check if metadata file exists
-        if not os.path.exists(self.metadataFile):
-            # Create metadata file
-            self.dumpMetadata()
-
-        # Read metadata from file
-        with open(self.metadataFile, 'rb') as f:
-            self.metadata = pickle.load(f)
-    
-    def checkOutfileExists(self):
-        # For read-only databases, we don't need to check if the output file exists
-        # Read operations do not have to be serialized!
-        if self.readOnly:
+    def checkOverwrite(self):
+        # If the file is read-only, we don't need to check for overwriting
+        if self.readOnly or self.forceOverwrite:
             return
         
-        # Check if output file exists
-        with self.lock.acquire():
-            # Read metadata
-            self.loadMetadata()
-
-            # Check for errors
-            if self.metadata.get('dbError', False):
-                raise Exception(self.metadata['dbError'])
-
-            # Check if other process has already created the database
-            if not self.metadata.get('dbExists', False):
-                # Does the output file exist?
-                if os.path.exists(self.dbFile):
-                    # Am I allowed to overwrite it?
-                    if not self.forceOverwrite:
-                        # No, so raise an exception
-                        exception = f"Output file {self.dbFile} already exists! Please specify a different output file or set -f flag."
-                        
-                        # Need to commit the exception to other processes via the metadata file
-                        self.metadata['dbError'] = exception
-                        self.dumpMetadata()
-
-                        # Raise the exception
-                        raise Exception(exception)
-                    else:
-                        # Yes, so delete the file
-                        os.remove(self.dbFile)
-
-                        # Need to tell other processes that the file has been deleted in order
-                        # to avoid disk corruption
-                        self.metadata['dbExists'] = True
-                        self.dumpMetadata()
+        # For write operations, we need to check if the output file exists
+        # Does the output file already exist?
+        if os.path.exists(self.dbFile):
+            exception = f"Output file {self.dbFile} already exists! Please specify a different output file or set -f flag."
+            raise Exception(exception)
