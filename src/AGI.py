@@ -131,7 +131,7 @@ if __name__ == '__main__':
     # Run appropriate command
     AGIObj = AGI(args)
     if args.subcommand == 'profile':
-        AGIObj.profile()  # or a specific function for profiling
+        AGIObj.profile() 
     elif args.subcommand == 'analyze':
-        AGIObj.analyze()  # or a specific function for analysis
+        AGIObj.analyze()
 
