@@ -69,12 +69,10 @@ class AGI:
         from AGI.analysis.analysis import GPUMetricsAnalyzer
         
         # Instantiate analyzer class
-        analyzer = GPUMetricsAnalyzer(inputFile=self.args.input_file)
-
-        # If necessary, remove outliers
-        if self.args.detect_outliers != 'none':
-            # This modifies the analyzer object in-place
-            analyzer.detectOutlierSamples(self.args.detect_outliers)
+        analyzer = GPUMetricsAnalyzer(
+            inputFile=self.args.input_file,
+            detectOutliers=self.args.detect_outliers
+            )
 
         # Print GPU information
         if self.args.show_gpus:
