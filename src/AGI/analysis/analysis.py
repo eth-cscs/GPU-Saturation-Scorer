@@ -13,7 +13,13 @@ class GPUMetricsAnalyzer:
         self.input_file = inputFile
         self.metrics = None
         self.verbose = verbose
-        self.data = MetricsDataIO(inputFile, readOnly = True).load()
+        
+        # Load data from file
+        io = MetricsDataIO(inputFile, readOnly = True)
+        self.metadata = io.loadMetadata()
+        self.data = io.loadData()
+
+        # Create plotter object
         self.plotter = GraphIO(self.data)
         
     def clusterOutlierSamples(self, X, y):
@@ -104,7 +110,6 @@ class GPUMetricsAnalyzer:
         print("Summary of GPU metrics (average over all GPUs and all time steps)")
         print(formatDataFrame(df).transpose().to_string())
 
-    def showGPUs(self):
-        print("Available GPUs:")
-        for gpu in sorted(list(self.data.keys())):
-            print(gpu)
+    def showMetadata(self):
+        print("Metadata")
+        print(self.metadata)

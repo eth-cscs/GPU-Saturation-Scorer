@@ -1,9 +1,12 @@
-# Import DCGM modules
-from DcgmReader import DcgmReader
+# DCGM imports
+import dcgm_agent
+import dcgm_structs
 
 # Import AGI modules
 from .metrics import metricIds, demangledMetricNames
 from AGI.io import MetricsDataIO
+from AGI.dcgm.DcgmReader import DcgmReader
+from AGI.utils import readEnvVar
 
 # Import other modules
 import time
@@ -14,7 +17,7 @@ import sys
 
 # Main class used to run AGI
 class GPUMetricsProfiler:
-    def __init__(self, gpuIds: list, samplingTime: int, maxRuntime: int) -> None:
+    def __init__(self, gpuIds: list, label: str = None, samplingTime: int = 500, maxRuntime: int = 600) -> None:
         
         # Check if sampling time is too low
         if samplingTime < 100:
@@ -25,16 +28,23 @@ class GPUMetricsProfiler:
         self.gpuIds = gpuIds
         self.samplingTime = samplingTime
         self.maxRuntime = maxRuntime
-        self.metrics = []
-        
-        # Get hostname
-        self.hostname = socket.gethostname()
+        self.metadata = {}
+        self.metrics = {}
 
         # Generate GPU group UUID
         self.fieldGroupName = str(uuid.uuid4())
+        
+        # Get metadata
+        self.hostname = socket.gethostname()
+        self.procid = str(readEnvVar("SLURM_PROCID", throw=False))
+        self.jobid = str(readEnvVar("SLURM_JOB_ID", throw=False))
+        self.label = label if label else readEnvVar("SLURM_JOB_NAME", throw=False)
+
+        if self.label is None:
+            self.label = f"unlabeled_job_{self.jobid}"
     
         # Initialize DCGM reader
-        self.dr = DcgmReader(fieldIds=metricIds, gpuIds=self.gpuIds, fieldGroupName=self.fieldGroupName, updateFrequency=int(self.samplingTime*1000)) # Convert from milliseconds to microseconds
+        self.dr = DcgmReader(hostname=None, fieldIds=metricIds, gpuIds=self.gpuIds, fieldGroupName=self.fieldGroupName, updateFrequency=int(self.samplingTime*1000)) # Convert from milliseconds to microseconds)
             
     def run(self, command: str) -> None:
         # Record start time
@@ -45,9 +55,6 @@ class GPUMetricsProfiler:
 
         # Redirect stdout and stderr to output file if specified
         process = subprocess.Popen(command, shell=True)
-
-        # Initialize metrics dictionary
-        metrics = {}
         
         # Throw away first data point
         data = self.dr.GetLatestGpuValuesAsFieldIdDict()
@@ -65,19 +72,19 @@ class GPUMetricsProfiler:
         
             # Fuse data in metrics dictionary
             for gpuId in data:
-                gpuName = self.get_gpu_name(gpuId)
+                gpuName = self.getGPUName(gpuId)
                 
-                if gpuName not in metrics:
-                    metrics[gpuName] = {}
+                if gpuName not in self.metrics:
+                    self.metrics[gpuName] = {}
                 
                 for metricId in data[gpuId]:
-                    
+    
                     metricName = demangledMetricNames[metricId]
                     
-                    if metricName not in metrics[gpuName]:
-                        metrics[gpuName][metricName] = []
+                    if metricName not in self.metrics[gpuName]:
+                        self.metrics[gpuName][metricName] = []
 
-                    metrics[gpuName][metricName].append(data[gpuId][metricId])
+                    self.metrics[gpuName][metricName].append(data[gpuId][metricId])
 
             # Sleep for sampling frequency
             time.sleep(self.samplingTime/1e3) # Convert from milliseconds to seconds
@@ -94,12 +101,30 @@ class GPUMetricsProfiler:
             # Kill the process
             process.kill()
             print("Process killed due to timeout.")
-            
-        # Append collected profiling metrics
-        self.metrics.append(metrics)
+        
+        end_time = time.time()
+        
+        # Compute number of samples
+        nsamples = len(next(iter(self.metrics))["DEV_GPU_UTIL"])
+
+        # Generate metadata
+        self.metadata = {
+            "slurm_job_id": self.jobid,
+            "label": self.label,
+            "hostname": self.hostname,
+            "procid": self.procid,
+            "ngpus": len(self.gpuIds),
+            "gpu_ids": ", ".join(self.gpuIds),
+            "start_time": start_time,
+            "end_time": end_time,
+            "duration": end_time - start_time,
+            "tnames": ", ".join([self.getGPUName(gpuId) for gpuId in self.gpuIds]),
+            "sampling_time": self.samplingTime,
+            "nsamples": nsamples
+        }
 
     def getCollectedData(self) -> list:
-        return self.metrics
+        return (self.metadata, self.metrics)
     
-    def get_gpu_name(self, gpuId):
-        return f"{self.hostname}_gpu:{gpuId}"
+    def getGPUName(self, gpuId):
+        return f"{self.label}/{self.hostname}/gpu{gpuId}"

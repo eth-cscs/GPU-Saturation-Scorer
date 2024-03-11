@@ -42,25 +42,16 @@ class AGI:
         )
 
         # Run workload
-        if self.args.wrap:
-            profiler.run(self.args.wrap)
-        else:
-            # Open self.args.script
-            with open(self.args.script) as f:
-                cmds = f.read().split('\n')
-
-            for cmd in cmds:
-                if cmd and not cmd.startswith('#'):
-                    profiler.run(cmd)
+        profiler.run(self.args.wrap)
 
         # Get collected metrics
-        metrics = profiler.getCollectedData()
+        metadata, data = profiler.getCollectedData()
 
         # Create IO handler
         IO = MetricsDataIO(self.args.output_file, readOnly=False, forceOverwrite=self.args.force_overwrite)
 
         # Dump data to SQL DB
-        IO.dump(metrics)
+        IO.dump(metadata, data)
         
         return 0
 
@@ -77,8 +68,8 @@ class AGI:
             analyzer.detectOutlierSamples(self.args.detect_outliers)
 
         # Print GPU information
-        if self.args.show_gpus:
-            analyzer.showGPUs()
+        if self.args.show_metadata:
+            analyzer.showMetadata()
 
         # Print summary of metrics
         if self.args.summary:
@@ -103,13 +94,10 @@ if __name__ == '__main__':
 
     # Profile subcommand
     parser_profile = subparsers.add_parser('profile', help='Profile command help')
-    # Need to set up mutually exclusive group for inputs
-    group = parser_profile.add_mutually_exclusive_group(required=True)
-    group.add_argument('--wrap', '-w', metavar='wrap', type=str, nargs='+', help='Wrapped command to run')
-    group.add_argument('--script', '-s', metavar='script', type=str, help='Wrap all commands in a script')
-    # Standard flags
-    parser_profile.add_argument('--max-runtime', '-m', metavar='max-runtime', type=int, default=60, help='Maximum runtime of the wrapped command in seconds')
-    parser_profile.add_argument('--sampling-time', '-t', metavar='sampling-time', type=int, default=1000, help='Sampling time of GPU metrics in milliseconds')
+    parser_profile.add_argument('--wrap', '-w', metavar='wrap', type=str, nargs='+', help='Wrapped command to run', required=True)
+    parser_profile.add_argument('--label', '-l', metavar='label', type=str, nargs='+', help='Workload label.', required=True)
+    parser_profile.add_argument('--max-runtime', '-m', metavar='max-runtime', type=int, default=600, help='Maximum runtime of the wrapped command in seconds')
+    parser_profile.add_argument('--sampling-time', '-t', metavar='sampling-time', type=int, default=500, help='Sampling time of GPU metrics in milliseconds')
     parser_profile.add_argument('--verbose', '-v', action='store_true', help='Print verbose GPU metrics to stdout')
     parser_profile.add_argument('--force-overwrite', '-f', action='store_true', help='Force overwrite of output file', default=False)
     parser_profile.add_argument('--output-file', '-o', metavar='output-file', type=str, default=None, help='Output SQL file for collected GPU metrics', required=True)
@@ -117,11 +105,12 @@ if __name__ == '__main__':
     # Analyze subcommand
     parser_analyze = subparsers.add_parser('analyze', help='Analyze command help')
     parser_analyze.add_argument('--input-file', '-i', type=str, required=True, help='Input file for analysis')
-    parser_analyze.add_argument('--summary', '-s', type=bool, help='Print summary of metrics. Default is True.')
-    parser_analyze.add_argument('--show-gpus', '-g', action='store_true', help='Print GPU information')
+    parser_analyze.add_argument('--no-summary', '-s', action="store_false", help='Hide summary of metrics.')
+    parser_analyze.add_argument('--show-metadata', '-mtd', action='store_true', help='Generate metadata for the input SQL file.')
     parser_analyze.add_argument('--verbose', '-v', action='store_true', help='Print verbose GPU metrics to stdout')
     parser_analyze.add_argument('--detect-outliers', '-d', type=str, default='leading', choices=['leading', 'trailing', 'none', 'all'],
                                 help='Heuristically detect outlier samples and discard them from the analysis')
+    parser_analyze.add_argument('--auto-diagnose', '-ad', type=bool, help='Print summary of metrics. Default is True.')
     parser_analyze.add_argument('--plot-time-series', '-pts', action='store_true', help='Generate time-series plots of metrics.')
     parser_analyze.add_argument('--plot-load-balancing', '-plb', action='store_true', help='Generate load-balancing plots of metrics.')
 
