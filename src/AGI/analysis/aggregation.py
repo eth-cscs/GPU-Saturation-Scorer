@@ -6,7 +6,8 @@ import pandas as pd
 from AGI.io.format import formatDataFrame
 
 class GPUMetricsAggregator:
-    def __init__(self, data):
+    def __init__(self, metadata, data):
+        self.metadata = metadata
         self.data = data
         self.timeAggregate = None
         self.spaceAggregate = None
@@ -15,10 +16,30 @@ class GPUMetricsAggregator:
         # If space aggregation has already been computed, return it
         if self.timeAggregate is not None:
             return self.timeAggregate
+       
+        # Init self.timeAggregate
+        self.timeAggregate = {}
 
-        # For each GPU, compute the time-series average of the metrics
-        self.timeAggregate = pd.DataFrame({ gpu: df.agg(["mean"]) for gpu, df in self.data.items() })
+        # Get table names for each slurm_job_id
+        slurmJobIds = self.metadata['slurm_job_id'].unique()
         
+        # For each job, aggregate the metrics over time
+        for jobId in slurmJobIds:
+            tnames = self.metadata[self.metadata['slurm_job_id'] == jobId]['tname'].unique()
+            hosts = self.metadata[self.metadata['slurm_job_id'] == jobId]['host'].unique()
+
+            print(tnames, hosts)
+
+            # For each GPU, compute the time-series average of the metrics
+            df = { t: self.data[t].agg(["mean"]) for t in tnames }
+            
+            # Get label for the job
+            label = self.metadata[self.metadata['tname'] == tnames[0]]['label'].values[0]
+            # Create key for the timeAggregate dictionary
+            key = f"{label}_{jobId}"
+            # Store the time-series average of the metrics
+            self.timeAggregate[key] = df
+
         return self.timeAggregate
 
     # Function that implements space (GPU) aggregation of GPU metrics in
@@ -29,21 +50,35 @@ class GPUMetricsAggregator:
         if self.spaceAggregate is not None:
             return self.spaceAggregate
         
-        # Get length of longest dataframe
-        n = max([len(df) for df in self.data.values()])
+        # Init self.timeAggregate
+        self.spaceAggregate = {}
 
-        # Compute average samples over all GPUs
-        # Each df is converted to a numpy array and then
-        # padded with NaNs to the length of the longest df
-        df = np.array([np.pad(df.to_numpy(), ((0, n - len(df)), (0, 0)), 
-                              mode='constant', constant_values=np.nan) for df in self.data.values()])
+        # Get table names for each slurm_job_id
+        slurmJobIds = self.metadata['slurm_job_id'].unique()
+        
+        # For each job, aggregate the metrics over time
+        for jobId in slurmJobIds:
+            tnames = self.metadata[self.metadata['slurm_job_id'] == jobId]['tname'].unique()
 
-        # Compute mean over all GPUs
-        # This will ignore NaNs
-        df = np.nanmean(df, axis=0)
+            # Get length of longest dataframe
+            n = max([len(self.data[t]) for t in tnames])
 
-        # Convert back to pandas dataframe
-        self.spaceAggregate = pd.DataFrame(df, columns=self.data[list(self.data.keys())[0]].columns)
+            # Compute average samples over all GPUs
+            # Each df is converted to a numpy array and then
+            # padded with NaNs to the length of the longest df
+            df = np.array([np.pad(self.data[t].to_numpy(), ((0, n - len(self.data[t])), (0, 0)), 
+                                mode='constant', constant_values=np.nan) for t in tnames])
+
+            # Compute mean over all GPUs
+            # This will ignore NaNs
+            df = np.nanmean(df, axis=0)
+
+            # Get label for the job
+            label = self.metadata[self.metadata['tname'] == tnames[0]]['label'].values[0]
+            # Create key for the timeAggregate dictionary
+            key = f"{label}_{jobId}"
+            # Convert back to pandas dataframe
+            self.spaceAggregate[key] = pd.DataFrame(df, columns=self.data[tnames[0]].columns)
 
         # Return space aggregate
         return self.spaceAggregate

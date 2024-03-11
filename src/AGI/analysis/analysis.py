@@ -20,13 +20,12 @@ class GPUMetricsAnalyzer:
 
         # Load data from file
         io = MetricsDataIO(inputFile, readOnly = True)
-        self.metadata = io.loadMetadata()
-        self.data = io.loadData()
+        self.metadata, self.data = io.load()
 
         # Create necessary objects
-        self.pp = MetricsPreProcessor(self.data)
-        self.aggregator = GPUMetricsAggregator(self.data)
-        self.plotter = GraphIO(self.data)
+        #self.pp = MetricsPreProcessor(self.data)
+        self.aggregator = GPUMetricsAggregator(self.metadata, self.data)
+        self.plotter = GraphIO()
 
         # Call pre-processing functions
         if self.detectOutliers != "none":
@@ -35,17 +34,14 @@ class GPUMetricsAnalyzer:
     def plotUsageMap(self):
         # For load balancing heatmap we aggregate over the time dimension.
         # This will yield a single average value for each metric for each GPU.
-        df = self.aggregator.aggregateTime()
-        print(df)
-
-        self.plotter.plotUsageMap(df)
+        data = self.aggregator.aggregateTime()
+        self.plotter.plotUsageMap(data)
          
     def plotTimeSeries(self):
         # For time series we aggregate over the space dimension.
         # This will yield an average time-series for each metric over all GPUs.
-        df = self.aggregator.aggregateSpace()
-        print(df)
-        self.plotter.plotTimeSeries(df)
+        data = self.aggregator.aggregateSpace()
+        self.plotter.plotTimeSeries(data)
     
     def summary(self, verbose):
         # If verbosity is enable, print metric for each GPU/EPOCH
@@ -72,3 +68,6 @@ class GPUMetricsAnalyzer:
     def showMetadata(self):
         print("Metadata")
         print(self.metadata)
+
+        print("Data")
+        print(self.data.keys())

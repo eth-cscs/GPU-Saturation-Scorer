@@ -6,15 +6,12 @@ import pickle
 # This class is used to write data to a SQLite database
 # The purpose is to allow multiple processes to write to the same database without corrupting it
 class MetricsDataIO:
-    def __init__(self, dbFile: str, forceOverwrite: bool = False, readOnly: bool = True, timeout: int = 900):  # default 15 minutes timeout for locking the database
+    def __init__(self, dbFile: str, ifExists: str = "fail", readOnly: bool = True, timeout: int = 900):  # default 15 minutes timeout for locking the database
         # Set up input parameters
         self.dbFile = dbFile
-        self.forceOverwrite = forceOverwrite
+        self.ifExists = ifExists
         self.timeout = timeout
         self.readOnly = readOnly
-
-        # Check for potential overwrite of output file
-        self.checkOverwrite()
 
     # Define decorator to check if database is read-only
     def checkReadOnly(func):
@@ -26,22 +23,34 @@ class MetricsDataIO:
         return wrapper
 
     @checkReadOnly
-    def dump(self, data: list) -> None:
-        # Check if data is empty
-        if len(data) == 0:
-            return
-        
-        # If only one epoch has been recorded, no suffix is needed
-        if len(data) == 1:
-            self.dumpEpoch(data[0])
-        else:
-            # If multiple epochs have been recorded, a suffix is needed
-            for i, epoch in enumerate(data):
-                self.dumpEpoch(epoch, f"_epoch:{i}")
-        
-    def dumpEpoch(self, data: dict, epoch : str = "") -> None:
-        # Create database connection
+    def dump(self, metadata: dict, data: dict) -> None:
+        # Create database connection --> this automatically handles the locking
         with sqlite3.connect(self.dbFile, timeout=self.timeout) as conn:
+            # Read largest slurm job id
+            max_slurm_job_id = None
+            
+            # Need to handle the case where the database is empty
+            try:
+                max_slurm_job_id = int(pd.read_sql_query("SELECT MAX(slurm_job_id) FROM AGI_METADATA", conn).iloc[0, 0])
+            except:
+                pass
+
+            # Check if the database already contains data from a previous slurm job
+            if max_slurm_job_id and int(metadata['slurm_job_id']) != max_slurm_job_id:
+                # Check if we want to append data to the DB
+                if self.ifExists == "append":
+                    pass
+                
+                # Check if we want to overwrite the DB
+                elif self.ifExists == "overwrite":
+                    tables = pd.read_sql_query("SELECT name FROM sqlite_master WHERE type='table'", conn)
+                    for table in tables['name']:
+                        conn.execute(f"DROP TABLE \"{table}\"")
+
+                # Otherwise, raise an exception
+                else:
+                    raise Exception(f"Database already exists. Please specify a different output file or set -f flag.")
+
             for tableName, tableData in data.items():
                 # Covert tableData to DataFrame
                 df = pd.DataFrame(tableData)
@@ -53,7 +62,52 @@ class MetricsDataIO:
                     df['DEV_GPU_UTIL'] = df['DEV_GPU_UTIL'].astype(float) / 100.0
 
                 # Write data to database
-                df.to_sql(tableName + epoch, conn, if_exists='replace', index=False)
+                df.to_sql(tableName, conn, if_exists='replace', index=False)
+
+            # Write metadata to the database
+            # Create table "AGI_METADATA" if it does not exist
+            # The DB schema is as follows:
+            # "slurm_job_id": INT,
+            # "label": TEXT,
+            # "hostname": TEXT,
+            # "procid": INT,
+            # "n_gpus": INT,
+            # "gpu_ids": TEXT,
+            # "start_time": INT,
+            # "end_time": INT,
+            # "duration": INT,
+            # "tname": TEXT,
+            # "sampling_time": INT,
+            # "n_samples": INT
+
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS AGI_METADATA (
+                    slurm_job_id INT,
+                    label TEXT,
+                    hostname TEXT,
+                    procid INT,
+                    n_gpus INT,
+                    gpu_ids TEXT,
+                    start_time INT,
+                    end_time INT,
+                    duration INT,
+                    tname TEXT,
+                    sampling_time INT,
+                    n_samples INT
+                )
+            """)
+
+            # Append metadata entry to AGI_METADATA
+            conn.execute("""
+                INSERT INTO AGI_METADATA (
+                    slurm_job_id, label, hostname, procid, n_gpus, gpu_ids, start_time, end_time, duration, tname, sampling_time, n_samples
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                metadata['slurm_job_id'], metadata['label'], metadata['hostname'], metadata['procid'],
+                metadata['n_gpus'], metadata['gpu_ids'], metadata['start_time'], metadata['end_time'],
+                metadata['duration'], metadata['tname'], metadata['sampling_time'], metadata['n_samples']
+            ))
+
 
     # Loads all tables into a dictionarz of pandas DataFrames
     def load(self):
@@ -61,25 +115,18 @@ class MetricsDataIO:
         if not os.path.exists(self.dbFile):
             raise Exception(f"Database file {self.dbFile} does not exist!")
         
+        data = {}
         # Create database connection
         with sqlite3.connect(self.dbFile) as conn:
             # Get list of tables
             tables = pd.read_sql_query("SELECT name FROM sqlite_master WHERE type='table'", conn)
             
             # Load tables into a dict of DataFrames
-            dfs = {}
+            data = {}
             for table in tables['name']:
-                dfs[table] = pd.read_sql_query(f"SELECT * FROM \"{table}\"", conn)
+                data[table] = pd.read_sql_query(f"SELECT * FROM \"{table}\"", conn)
             
-            return dfs
-    
-    def checkOverwrite(self):
-        # If the file is read-only, we don't need to check for overwriting
-        if self.readOnly or self.forceOverwrite:
-            return
-        
-        # For write operations, we need to check if the output file exists
-        # Does the output file already exist?
-        if os.path.exists(self.dbFile):
-            exception = f"Output file {self.dbFile} already exists! Please specify a different output file or set -f flag."
-            raise Exception(exception)
+        # Load metadata
+        metadata = pd.read_sql_query("SELECT * FROM AGI_METADATA", conn)
+
+        return metadata, data

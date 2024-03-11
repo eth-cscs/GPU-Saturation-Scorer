@@ -1,12 +1,10 @@
-# DCGM imports
-import dcgm_agent
-import dcgm_structs
+# Import DCGM modules
+from DcgmReader import DcgmReader
 
 # Import AGI modules
 from .metrics import metricIds, demangledMetricNames
 from AGI.io import MetricsDataIO
-from AGI.dcgm.DcgmReader import DcgmReader
-from AGI.utils import readEnvVar
+from AGI.utils.utils import readEnvVar
 
 # Import other modules
 import time
@@ -14,6 +12,7 @@ import uuid
 import subprocess
 import socket
 import sys
+import datetime
 
 # Main class used to run AGI
 class GPUMetricsProfiler:
@@ -40,11 +39,15 @@ class GPUMetricsProfiler:
         self.jobid = str(readEnvVar("SLURM_JOB_ID", throw=False))
         self.label = label if label else readEnvVar("SLURM_JOB_NAME", throw=False)
 
+        # If label is still None, generate a default label
         if self.label is None:
             self.label = f"unlabeled_job_{self.jobid}"
+
+        # Make sure label is a valid table name with no spaces
+        self.label = self.label.replace(" ", "_")
     
         # Initialize DCGM reader
-        self.dr = DcgmReader(hostname=None, fieldIds=metricIds, gpuIds=self.gpuIds, fieldGroupName=self.fieldGroupName, updateFrequency=int(self.samplingTime*1000)) # Convert from milliseconds to microseconds)
+        self.dr = DcgmReader(fieldIds=metricIds, gpuIds=self.gpuIds, fieldGroupName=self.fieldGroupName, updateFrequency=int(self.samplingTime*1000)) # Convert from milliseconds to microseconds)
             
     def run(self, command: str) -> None:
         # Record start time
@@ -105,7 +108,12 @@ class GPUMetricsProfiler:
         end_time = time.time()
         
         # Compute number of samples
-        nsamples = len(next(iter(self.metrics))["DEV_GPU_UTIL"])
+        n_samples = len(next(iter(self.metrics.values()))["DEV_GPU_UTIL"])
+
+        # Compute timestamps
+        duration = end_time - start_time
+        start_time = datetime.datetime.fromtimestamp(start_time).strftime('%Y/%m/%d-%H:%M:%S')
+        end_time = datetime.datetime.fromtimestamp(end_time).strftime('%Y/%m/%d-%H:%M:%S')
 
         # Generate metadata
         self.metadata = {
@@ -113,14 +121,14 @@ class GPUMetricsProfiler:
             "label": self.label,
             "hostname": self.hostname,
             "procid": self.procid,
-            "ngpus": len(self.gpuIds),
-            "gpu_ids": ", ".join(self.gpuIds),
+            "n_gpus": len(self.gpuIds),
+            "gpu_ids": ", ".join([str(id) for id in self.gpuIds]),
             "start_time": start_time,
             "end_time": end_time,
-            "duration": end_time - start_time,
-            "tnames": ", ".join([self.getGPUName(gpuId) for gpuId in self.gpuIds]),
+            "duration": duration,
+            "tname": ", ".join([self.getGPUName(gpuId) for gpuId in self.gpuIds]),
             "sampling_time": self.samplingTime,
-            "nsamples": nsamples
+            "n_samples": n_samples
         }
 
     def getCollectedData(self) -> list:

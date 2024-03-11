@@ -38,6 +38,7 @@ class AGI:
         profiler = GPUMetricsProfiler(
             gpuIds=gpuIds, # Need to pass a list of GPU IDs
             samplingTime=self.args.sampling_time,
+            label=self.args.label,
             maxRuntime=self.args.max_runtime,
         )
 
@@ -47,8 +48,19 @@ class AGI:
         # Get collected metrics
         metadata, data = profiler.getCollectedData()
 
+        # We force delete the profiler object to ensure that the DCGM context is destroyed
+        # We do not want to keep the DCGM context open for the entire lifetime of the profiler
+        # Doing so results in strange and unpredictable crashes
+        del profiler
+
         # Create IO handler
-        IO = MetricsDataIO(self.args.output_file, readOnly=False, forceOverwrite=self.args.force_overwrite)
+        ifExists = "fail"
+        if self.args.append:
+            ifExists = "append"
+        elif self.args.force_overwrite:
+            ifExists = "overwrite"
+
+        IO = MetricsDataIO(self.args.output_file, readOnly=False, ifExists=ifExists)
 
         # Dump data to SQL DB
         IO.dump(metadata, data)
@@ -70,7 +82,7 @@ class AGI:
             analyzer.showMetadata()
 
         # Print summary of metrics
-        if self.args.summary:
+        if self.args.no_summary == False:
             analyzer.summary(self.args.verbose)
         
         # Plot time-series of metrics
@@ -79,7 +91,8 @@ class AGI:
 
         # Plot load-balancing of metrics
         if self.args.plot_load_balancing:
-            analyzer.plotUsageMap()
+            print("Usage map plotting is temporarily disabled due to restructuring of the code.")
+            #analyzer.plotUsageMap()
         
         return 0
 
@@ -93,11 +106,12 @@ if __name__ == '__main__':
     # Profile subcommand
     parser_profile = subparsers.add_parser('profile', help='Profile command help')
     parser_profile.add_argument('--wrap', '-w', metavar='wrap', type=str, nargs='+', help='Wrapped command to run', required=True)
-    parser_profile.add_argument('--label', '-l', metavar='label', type=str, nargs='+', help='Workload label.', required=True)
+    parser_profile.add_argument('--label', '-l', metavar='label', type=str, help='Workload label.', required=False)
     parser_profile.add_argument('--max-runtime', '-m', metavar='max-runtime', type=int, default=600, help='Maximum runtime of the wrapped command in seconds')
     parser_profile.add_argument('--sampling-time', '-t', metavar='sampling-time', type=int, default=500, help='Sampling time of GPU metrics in milliseconds')
     parser_profile.add_argument('--verbose', '-v', action='store_true', help='Print verbose GPU metrics to stdout')
     parser_profile.add_argument('--force-overwrite', '-f', action='store_true', help='Force overwrite of output file', default=False)
+    parser_profile.add_argument('--append', '-a', action='store_true', help='Append profiling data to the output file', default=False)
     parser_profile.add_argument('--output-file', '-o', metavar='output-file', type=str, default=None, help='Output SQL file for collected GPU metrics', required=True)
 
     # Analyze subcommand
@@ -106,7 +120,7 @@ if __name__ == '__main__':
     parser_analyze.add_argument('--no-summary', '-s', action="store_false", help='Hide summary of metrics.')
     parser_analyze.add_argument('--show-metadata', '-mtd', action='store_true', help='Generate metadata for the input SQL file.')
     parser_analyze.add_argument('--verbose', '-v', action='store_true', help='Print verbose GPU metrics to stdout')
-    parser_analyze.add_argument('--detect-outliers', '-d', type=str, default='leading', choices=['leading', 'trailing', 'none', 'all'],
+    parser_analyze.add_argument('--detect-outliers', '-d', type=str, default='none', choices=['leading', 'trailing', 'none', 'all'],
                                 help='Heuristically detect outlier samples and discard them from the analysis')
     parser_analyze.add_argument('--auto-diagnose', '-ad', type=bool, help='Print summary of metrics. Default is True.')
     parser_analyze.add_argument('--plot-time-series', '-pts', action='store_true', help='Generate time-series plots of metrics.')
