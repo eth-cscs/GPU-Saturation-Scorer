@@ -61,10 +61,10 @@ AGI collects different profiling metrics that can help in evaluating both the ef
 
 The file `metrics.pdf`offers a more detailed overview and explanation of many of these metrics.
 
-The `FLOP_ACTIVE` metric simply refers to the sum of the activities of each mathematical engine. I.e.: $$ \text{FLOP\_ACTIVE} =  \text{FP64\_ACTIVE} + \text{FP32\_ACTIVE} + \text{FP16\_ACTIVE} + \text{TENSOR\_ACTIVE}$$
+The `FLOP_ACTIVE` metric simply refers to the sum of the activities of each mathematical engine. I.e.: $$\text{FLOP ACTIVE} =  \text{FP64 ACTIVE} + \text{FP32 ACTIVE} + \text{FP16 ACTIVE} + \text{TENSOR ACTIVE}$$
 
 The workload efficiency score is computed by an EOS (equation of state) that has been fitted on a set of synthetic data:
-$$S = 4[\operatorname{sigmoid}(\alpha A)-0.5]\cdot[\operatorname{sigmoid}(\beta F + \gamma O \cdot e^{- \lambda F }) - 0.5] $$
+$$S = 4[\mathrm{sigmoid}(\alpha A)-0.5]\cdot[\mathrm{sigmoid}(\beta F + \gamma O \cdot e^{- \lambda F }) - 0.5]$$
 
 Where:
 
