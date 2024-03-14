@@ -38,5 +38,7 @@ metricNames2Formats = {
     "DRAM_ACTIVE": formatPercent,
     "PCIE_TX_BYTES": formatBytes,
     "PCIE_RX_BYTES": formatBytes,
+    # Custom metrics
+    "FLOP_ACTIVE": formatPercent,
     "EFFICIENCY_SCORE": formatPercent
 }

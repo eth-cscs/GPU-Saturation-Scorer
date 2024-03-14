@@ -62,10 +62,20 @@ class GPUMetricsAnalyzer:
     def br(self):
         print("="*73)
 
-    def summary(self, verbose):
+    def summary(self, verbosity: str = "medium"):
         # Get unique job ids
         slurmJobIds = self.metadata['slurm_job_id'].unique()
-
+        
+        # Set verbosity
+        rows = None
+        cols = None
+        if verbosity == "low":
+            rows = ["mean", "min", "max"]
+            cols = ["EFFICIENCY_SCORE"]
+        if verbosity == "medium":
+            rows = ["mean", "median", "min", "max"]
+            cols = ["SM_ACTIVE", "SM_OCCUPANCY", "FLOP_ACTIVE", "DRAM_ACTIVE", "EFFICIENCY_SCORE"]
+        
         # Create summary for each job
         self.br()
         for jobId in slurmJobIds:
@@ -75,10 +85,13 @@ class GPUMetricsAnalyzer:
             # Concatenate all dataframes
             df = pd.concat([self.data[t] for t in tnames], ignore_index=True, axis=0)
 
+            # Compute total FLOP activity
+            df["FLOP_ACTIVE"] = df['PIPE_FP16_ACTIVE'] + df['PIPE_FP32_ACTIVE'] + df['PIPE_FP64_ACTIVE'] + df['PIPE_TENSOR_CORE_ACTIVE']
+            
             # Compute efficeicy score
             A = df["SM_ACTIVE"]
             O = df["SM_OCCUPANCY"]
-            F = df['PIPE_FP16_ACTIVE'] + df['PIPE_FP32_ACTIVE'] + df['PIPE_FP64_ACTIVE'] + df['PIPE_TENSOR_CORE_ACTIVE']
+            F = df["FLOP_ACTIVE"]
 
             # Compute efficiency score
             df['EFFICIENCY_SCORE'] = self.score(A, F, O)
@@ -90,7 +103,16 @@ class GPUMetricsAnalyzer:
             # Get label
             label = self.metadata[self.metadata['tname'] == tnames[0]]['label'].values[0]
             print(f"Summary of GPU metrics for job {label}_{jobId}")
+            
+            # Select only columns and cols of interest
+            if cols is not None:
+                df = df[cols]
+            
+            if rows is not None:
+                df = df.loc[rows]
+
             print(formatDataFrame(df).T.to_string())
+            
             self.br()
 
     def showMetadata(self):

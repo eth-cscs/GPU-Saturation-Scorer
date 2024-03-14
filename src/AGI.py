@@ -81,9 +81,9 @@ class AGI:
         if self.args.show_metadata:
             analyzer.showMetadata()
 
-        # Print summary of metrics
+        # Print summary of metricsx
         if self.args.no_summary == False:
-            analyzer.summary(self.args.verbose)
+            analyzer.summary(self.args.verbosity)
         
         # Plot time-series of metrics
         if self.args.plot_time_series:
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     parser_analyze.add_argument('--input-file', '-i', type=str, required=True, help='Input file for analysis')
     parser_analyze.add_argument('--no-summary', '-ns', action="store_true", default=False, help='Hide summary of metrics.')
     parser_analyze.add_argument('--show-metadata', '-mtd', action='store_true',  default=False, help='Generate metadata for the input SQL file.')
-    parser_analyze.add_argument('--verbose', '-v', action='store_true', help='Print verbose GPU metrics to stdout')
+    parser_analyze.add_argument('--verbosity', '-v', type=str, help='Set verbosity of the summary. Default is "medium".', choices=['low', 'medium', 'high'], default='medium')
     parser_analyze.add_argument('--detect-outliers', '-d', type=str, default='none', choices=['leading', 'trailing', 'none', 'all'],
                                 help='Heuristically detect outlier samples and discard them from the analysis')
     parser_analyze.add_argument('--auto-diagnose', '-ad', type=bool, help='Print summary of metrics. Default is True.')
