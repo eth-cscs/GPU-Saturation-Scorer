@@ -91,8 +91,8 @@ class AGI:
 
         # Plot load-balancing of metrics
         if self.args.plot_load_balancing:
-            print("Usage map plotting is temporarily disabled due to restructuring of the code.")
-            #analyzer.plotUsageMap()
+            #print("Usage map plotting is temporarily disabled due to restructuring of the code.")
+            analyzer.plotUsageMap()
         
         return 0
 
@@ -117,8 +117,8 @@ if __name__ == '__main__':
     # Analyze subcommand
     parser_analyze = subparsers.add_parser('analyze', help='Analyze command help')
     parser_analyze.add_argument('--input-file', '-i', type=str, required=True, help='Input file for analysis')
-    parser_analyze.add_argument('--no-summary', '-s', action="store_false", help='Hide summary of metrics.')
-    parser_analyze.add_argument('--show-metadata', '-mtd', action='store_true', help='Generate metadata for the input SQL file.')
+    parser_analyze.add_argument('--no-summary', '-ns', action="store_true", default=False, help='Hide summary of metrics.')
+    parser_analyze.add_argument('--show-metadata', '-mtd', action='store_true',  default=False, help='Generate metadata for the input SQL file.')
     parser_analyze.add_argument('--verbose', '-v', action='store_true', help='Print verbose GPU metrics to stdout')
     parser_analyze.add_argument('--detect-outliers', '-d', type=str, default='none', choices=['leading', 'trailing', 'none', 'all'],
                                 help='Heuristically detect outlier samples and discard them from the analysis')
@@ -135,4 +135,7 @@ if __name__ == '__main__':
         AGIObj.profile() 
     elif args.subcommand == 'analyze':
         AGIObj.analyze()
+    else:
+        # Print help if no subcommand is given
+        parser.print_help()
 

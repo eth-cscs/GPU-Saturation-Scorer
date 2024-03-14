@@ -37,5 +37,6 @@ metricNames2Formats = {
     "PIPE_FP16_ACTIVE": formatPercent,
     "DRAM_ACTIVE": formatPercent,
     "PCIE_TX_BYTES": formatBytes,
-    "PCIE_RX_BYTES": formatBytes
+    "PCIE_RX_BYTES": formatBytes,
+    "EFFICIENCY_SCORE": formatPercent
 }
