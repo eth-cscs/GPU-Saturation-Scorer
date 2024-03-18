@@ -1,19 +1,18 @@
 #!/bin/bash
+
 # Get the current directory where the script is located
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-SCRIPT_PATH=$(realpath $SCRIPT_DIR/../src/AGI.py)
+SCRIPT_PATH=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+BIN_PATH=$(realpath "$SCRIPT_PATH/../bin/")
 
-# Function to set up the alias
-setup_alias() {
-    alias agi="$1 $SCRIPT_PATH"
-    echo "Alias 'agi' created."
-}
-
-# Check for python3 and python, then set up the alias accordingly
-if command -v python3 &>/dev/null; then
-    setup_alias "python3"
-elif command -v python &>/dev/null; then
-    setup_alias "python"
-else
-    echo "Python is not installed or not available in PATH."
+# Check if the file is executable, if not, make it executable
+if [ ! -x "$BIN_PATH/agi" ]; then
+    chmod +x "$BIN_PATH/agi"
 fi
+
+# Add the directory containing agi to PATH
+if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+    export PATH="$PATH:$BIN_PATH"
+    echo "Added $BIN_PATH to PATH."
+fi
+
+echo "Setup complete."

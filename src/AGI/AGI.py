@@ -1,20 +1,24 @@
-# Import modules
 import os
-import argparse
-
 # Driver functions for the profiler module
 class AGI:
     def __init__(self, args):
         self.args = args
+
+    def run(self):
+        if self.args.subcommand == 'profile':
+            self.profile() 
+        elif self.args.subcommand == 'analyze':
+            self.analyze()
+            
     def profile(self):
-        from AGI.utils.utils import checkDCGMImports
-        from AGI.io.MetricsDataIO import MetricsDataIO
+        from .utils.utils import checkDCGMImports
+        from .io.MetricsDataIO import MetricsDataIO
         
         # Check if DCGM bindings are available before importing AGI modules
         # This raises an exception if DCGM is not available
         checkDCGMImports()
         # Import AGI modules
-        from AGI.profiler.GPUMetricsProfiler import GPUMetricsProfiler
+        from .profiler.GPUMetricsProfiler import GPUMetricsProfiler
         
         # Check if job was called via SLURM
         # We need this in order to extract information regarding which GPUs to monitor from the environment
@@ -41,6 +45,13 @@ class AGI:
             label=self.args.label,
             maxRuntime=self.args.max_runtime,
         )
+
+        # Dry run so that we can run a workload through AGI without collecting any metrics
+        # This should be used for debugging purposes and to test the AGI setup
+        if self.args.dry_run:
+            profiler.dryRun(self.args.wrap)
+            del profiler
+            return
 
         # Run workload
         profiler.run(self.args.wrap)
@@ -69,7 +80,7 @@ class AGI:
 
     # Driver function for the analyze module
     def analyze(self):
-        from AGI.analysis.analysis import GPUMetricsAnalyzer
+        from .analysis.analysis import GPUMetricsAnalyzer
         
         # Instantiate analyzer class
         analyzer = GPUMetricsAnalyzer(
@@ -95,47 +106,3 @@ class AGI:
             analyzer.plotUsageMap()
         
         return 0
-
-if __name__ == '__main__':
-    # Main parser
-    parser = argparse.ArgumentParser(description='Monitor and analyze resource usage of a workload with AGI')
-
-    # Subparsers
-    subparsers = parser.add_subparsers(dest='subcommand', help='sub-command help')
-
-    # Profile subcommand
-    parser_profile = subparsers.add_parser('profile', help='Profile command help')
-    parser_profile.add_argument('--wrap', '-w', metavar='wrap', type=str, nargs='+', help='Wrapped command to run', required=True)
-    parser_profile.add_argument('--label', '-l', metavar='label', type=str, help='Workload label.', required=False)
-    parser_profile.add_argument('--max-runtime', '-m', metavar='max-runtime', type=int, default=600, help='Maximum runtime of the wrapped command in seconds')
-    parser_profile.add_argument('--sampling-time', '-t', metavar='sampling-time', type=int, default=500, help='Sampling time of GPU metrics in milliseconds')
-    parser_profile.add_argument('--verbose', '-v', action='store_true', help='Print verbose GPU metrics to stdout')
-    parser_profile.add_argument('--force-overwrite', '-f', action='store_true', help='Force overwrite of output file', default=False)
-    parser_profile.add_argument('--append', '-a', action='store_true', help='Append profiling data to the output file', default=False)
-    parser_profile.add_argument('--output-file', '-o', metavar='output-file', type=str, default=None, help='Output SQL file for collected GPU metrics', required=True)
-
-    # Analyze subcommand
-    parser_analyze = subparsers.add_parser('analyze', help='Analyze command help')
-    parser_analyze.add_argument('--input-file', '-i', type=str, required=True, help='Input file for analysis')
-    parser_analyze.add_argument('--no-summary', '-ns', action="store_true", default=False, help='Hide summary of metrics.')
-    parser_analyze.add_argument('--show-metadata', '-mtd', action='store_true',  default=False, help='Generate metadata for the input SQL file.')
-    parser_analyze.add_argument('--verbosity', '-v', type=str, help='Set verbosity of the summary. Default is "medium".', choices=['low', 'medium', 'high'], default='medium')
-    parser_analyze.add_argument('--detect-outliers', '-d', type=str, default='none', choices=['leading', 'trailing', 'none', 'all'],
-                                help='Heuristically detect outlier samples and discard them from the analysis')
-    parser_analyze.add_argument('--auto-diagnose', '-ad', type=bool, help='Print summary of metrics. Default is True.')
-    parser_analyze.add_argument('--plot-time-series', '-pts', action='store_true', help='Generate time-series plots of metrics.')
-    parser_analyze.add_argument('--plot-load-balancing', '-plb', action='store_true', help='Generate load-balancing plots of metrics.')
-
-    # Parse arguments
-    args = parser.parse_args()
-
-    # Run appropriate command
-    AGIObj = AGI(args)
-    if args.subcommand == 'profile':
-        AGIObj.profile() 
-    elif args.subcommand == 'analyze':
-        AGIObj.analyze()
-    else:
-        # Print help if no subcommand is given
-        parser.print_help()
-
