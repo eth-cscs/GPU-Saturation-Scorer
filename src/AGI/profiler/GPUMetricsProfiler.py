@@ -48,7 +48,40 @@ class GPUMetricsProfiler:
     
         # Initialize DCGM reader
         self.dr = DcgmReader(fieldIds=metricIds, gpuIds=self.gpuIds, fieldGroupName=self.fieldGroupName, updateFrequency=int(self.samplingTime*1000)) # Convert from milliseconds to microseconds)
+    
+    # Debug function used to run a workload through AGI without collecting any metrics
+    def dryRun(self, command: str) -> None:
+        # Record start time
+        start_time = time.time()
+
+        # Flush stdout and stderr before opening the process
+        sys.stdout.flush()
+
+        # Redirect stdout and stderr to output file if specified
+        process = subprocess.Popen(command, shell=True)
+
+        while self.maxRuntime <= 0 or time.time() - start_time < self.maxRuntime:
             
+            time.sleep(0.5) # Sleep for half a second
+
+            # Check if the process has completed
+            if process.poll() is not None:
+                if process.returncode != 0:
+                    raise Exception("The profiled command returned a non-zero exit code.")
+                break
+
+        # Check if the loop exited due to timeout
+        # We check for None because poll() returns None if the process is still running, otherwise it returns the exit code
+        if process.poll() is None: # 
+            # Kill the process
+            process.kill()
+            print("Process killed due to timeout.")
+        
+        end_time = time.time()
+
+        print(f"Process completed without issues in {end_time - start_time}s")
+
+
     def run(self, command: str) -> None:
         # Record start time
         start_time = time.time()
@@ -107,8 +140,13 @@ class GPUMetricsProfiler:
         
         end_time = time.time()
         
-        # Compute number of samples
-        n_samples = len(next(iter(self.metrics.values()))["DEV_GPU_UTIL"])
+        # Get smallest number of samples
+        n_samples = min([len(self.metrics[gpuName][metricName]) for gpuName in self.metrics for metricName in self.metrics[gpuName]])
+
+        # Truncate metrics to the smallest number of samples
+        for gpuName in self.metrics:
+            for metricName in self.metrics[gpuName]:
+                self.metrics[gpuName][metricName] = self.metrics[gpuName][metricName][-n_samples:] 
 
         # Compute timestamps
         duration = end_time - start_time
