@@ -30,7 +30,8 @@ class GPUMetricsAnalyzer:
 
         # Call pre-processing functions
         if self.detectOutliers != "none":
-            self.pp.removeOutliers(self.detectOutliers, self.detectionAlgorithm)
+            print("Automatic outlier detection is currently disabled while the code is being restructured.")
+            # self.pp.removeOutliers(self.detectOutliers, self.detectionAlgorithm)
 
     def plotUsageMap(self):
         # For load balancing heatmap we aggregate over the time dimension.
