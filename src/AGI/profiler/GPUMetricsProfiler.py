@@ -19,9 +19,9 @@ class GPUMetricsProfiler:
     def __init__(self, gpuIds: list, label: str = None, samplingTime: int = 500, maxRuntime: int = 600) -> None:
         
         # Check if sampling time is too low
-        if samplingTime < 100:
-            print("Warning: sampling time is too low. Defaulting to 100ms.")
-            samplingTime = 100
+        if samplingTime < 20:
+            print("Warning: sampling time is too low. Defaulting to 20ms.")
+            samplingTime = 20
 
         # Store options
         self.gpuIds = gpuIds
