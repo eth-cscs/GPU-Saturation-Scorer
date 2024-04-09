@@ -1,20 +1,8 @@
 import sys
 import os
 
-# Function used to read environment variables
-def readEnvVar(varName: str, throw: bool = True) -> str:
-    try:
-        return os.environ[varName]
-    except KeyError:
-        errMsg = f"Environment variable {varName} not found."
-        if throw:
-            raise Exception(errMsg)
-        else:
-            print(f"WARNING: {errMsg}")
-            return None
-
 # Function used to check if DCGM is installed and python bindings are available
-def checkDCGMImports() -> None:
+def loadDCGM() -> None:
     # Set-up DCGM library path
     try: 
         # Check if DCGM is already in the path

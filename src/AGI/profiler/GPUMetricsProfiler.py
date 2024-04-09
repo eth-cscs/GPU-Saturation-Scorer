@@ -2,9 +2,9 @@
 from DcgmReader import DcgmReader
 
 # Import AGI modules
-from .metrics import metricIds, demangledMetricNames
-from AGI.io import MetricsDataIO
-from AGI.utils.utils import readEnvVar
+from AGI.io.json_io import JSONDataIO
+from AGI.utils.slurm_handler import SlurmJob
+from AGI.profiler.metrics import metricIds
 
 # Import other modules
 import time
@@ -13,10 +13,12 @@ import subprocess
 import socket
 import sys
 import datetime
+import json
+import os
 
 # Main class used to run AGI
 class GPUMetricsProfiler:
-    def __init__(self, gpuIds: list, label: str = None, samplingTime: int = 500, maxRuntime: int = 600) -> None:
+    def __init__(self, job: SlurmJob, samplingTime: int = 500, maxRuntime: int = 600, forceOverwrite: bool = False) -> None:
         
         # Check if sampling time is too low
         if samplingTime < 20:
@@ -24,64 +26,23 @@ class GPUMetricsProfiler:
             samplingTime = 20
 
         # Store options
-        self.gpuIds = gpuIds
+        self.job = job
         self.samplingTime = samplingTime
         self.maxRuntime = maxRuntime
         self.metadata = {}
-        self.metrics = {}
+        self.data = {}
 
         # Generate GPU group UUID
         self.fieldGroupName = str(uuid.uuid4())
         
-        # Get metadata
-        self.hostname = socket.gethostname()
-        self.procid = str(readEnvVar("SLURM_PROCID", throw=False))
-        self.jobid = str(readEnvVar("SLURM_JOB_ID", throw=False))
-        self.label = label if label else readEnvVar("SLURM_JOB_NAME", throw=False)
+        # Store reference to IOHandler
+        self.file_path = os.path.join(self.job.output_folder, self.job.output_file)
+        self.IO = JSONDataIO(self.file_path, forceOverwrite = forceOverwrite)
+        self.IO.checkOverwrite() # Check if file exists and fail if necessary
 
-        # If label is still None, generate a default label
-        if self.label is None:
-            self.label = f"unlabeled_job_{self.jobid}"
-
-        # Make sure label is a valid table name with no spaces
-        self.label = self.label.replace(" ", "_")
-    
         # Initialize DCGM reader
-        self.dr = DcgmReader(fieldIds=metricIds, gpuIds=self.gpuIds, fieldGroupName=self.fieldGroupName, updateFrequency=int(self.samplingTime*1000)) # Convert from milliseconds to microseconds)
+        self.dr = DcgmReader(fieldIds=metricIds, gpuIds=self.job.gpuIds, fieldGroupName=self.fieldGroupName, updateFrequency=int(self.samplingTime*1000)) # Convert from milliseconds to microseconds)
     
-    # Debug function used to run a workload through AGI without collecting any metrics
-    def dryRun(self, command: str) -> None:
-        # Record start time
-        start_time = time.time()
-
-        # Flush stdout and stderr before opening the process
-        sys.stdout.flush()
-
-        # Redirect stdout and stderr to output file if specified
-        process = subprocess.Popen(command, shell=True)
-
-        while self.maxRuntime <= 0 or time.time() - start_time < self.maxRuntime:
-            
-            time.sleep(0.5) # Sleep for half a second
-
-            # Check if the process has completed
-            if process.poll() is not None:
-                if process.returncode != 0:
-                    raise Exception("The profiled command returned a non-zero exit code.")
-                break
-
-        # Check if the loop exited due to timeout
-        # We check for None because poll() returns None if the process is still running, otherwise it returns the exit code
-        if process.poll() is None: # 
-            # Kill the process
-            process.kill()
-            print("Process killed due to timeout.")
-        
-        end_time = time.time()
-
-        print(f"Process completed without issues in {end_time - start_time}s")
-
-
     def run(self, command: str) -> None:
         # Record start time
         start_time = time.time()
@@ -89,38 +50,33 @@ class GPUMetricsProfiler:
         # Flush stdout and stderr before opening the process
         sys.stdout.flush()
 
-        # Redirect stdout and stderr to output file if specified
+        # Redirect stdout
         process = subprocess.Popen(command, shell=True)
         
         # Throw away first data point
-        data = self.dr.GetLatestGpuValuesAsFieldIdDict()
+        self.dr.GetLatestGpuValuesAsFieldNameDict()
         
         # Profiling loop with timeout check
         while self.maxRuntime <= 0 or time.time() - start_time < self.maxRuntime:
-            
-            # Query DCGM for latest values
+            # Query DCGM for latest samples
             # Note: theoretically, it is possible to query data without such a loop using GetAllGpuValuesAsFieldIdDictSinceLastCall()
             # however the results seem to be inconsistent and not as accurate as using a loop -> use a loop for now
-            
-            # Note 2: we could use GetAllGpuValuesAsFieldNameDict() instead of GetLatestGpuValuesAsFieldIdDict() to avoid having to demangle the field names,
-            # however the former yields long string names that are annoying to parse -> use the latter for now
-            data = self.dr.GetLatestGpuValuesAsFieldIdDict()
+            samples = self.dr.GetLatestGpuValuesAsFieldNameDict()
         
             # Fuse data in metrics dictionary
-            for gpuId in data:
-                gpuName = self.getGPUName(gpuId)
+            for gpuId in samples:
+                # Initialize dictionary for GPU if it does not exist
+                if gpuId not in self.data:
+                    self.data[gpuId] = {}
                 
-                if gpuName not in self.metrics:
-                    self.metrics[gpuName] = {}
-                
-                for metricId in data[gpuId]:
-    
-                    metricName = demangledMetricNames[metricId]
-                    
-                    if metricName not in self.metrics[gpuName]:
-                        self.metrics[gpuName][metricName] = []
+                # Store new samples
+                for metric in samples[gpuId]:
+                    # Check if metric has been seen before and if not add it to the dictionary
+                    if metric not in self.data[gpuId]:
+                        self.data[gpuId][metric] = []
 
-                    self.metrics[gpuName][metricName].append(data[gpuId][metricId])
+                    # Append new sample
+                    self.data[gpuId][metric].append(samples[gpuId][metric])
 
             # Sleep for sampling frequency
             time.sleep(self.samplingTime/1e3) # Convert from milliseconds to seconds
@@ -138,39 +94,47 @@ class GPUMetricsProfiler:
             process.kill()
             print("Process killed due to timeout.")
         
-        end_time = time.time()
-        
-        # Get smallest number of samples
-        n_samples = min([len(self.metrics[gpuName][metricName]) for gpuName in self.metrics for metricName in self.metrics[gpuName]])
-
-        # Truncate metrics to the smallest number of samples
-        for gpuName in self.metrics:
-            for metricName in self.metrics[gpuName]:
-                self.metrics[gpuName][metricName] = self.metrics[gpuName][metricName][-n_samples:] 
-
         # Compute timestamps
+        end_time = time.time()
         duration = end_time - start_time
         start_time = datetime.datetime.fromtimestamp(start_time).strftime('%Y/%m/%d-%H:%M:%S')
         end_time = datetime.datetime.fromtimestamp(end_time).strftime('%Y/%m/%d-%H:%M:%S')
+        
+        # We need to truncate the metrics to the smallest number of samples across all GPUs
+        # This is because on occasion, some metrics may have a few more samples than others (in the order of 1-5 samples)
+        n_samples = self.truncateData()
 
-        # Generate metadata
+        # Assemble the metadata
         self.metadata = {
-            "slurm_job_id": self.jobid,
-            "label": self.label,
-            "hostname": self.hostname,
-            "procid": self.procid,
-            "n_gpus": len(self.gpuIds),
-            "gpu_ids": ", ".join([str(id) for id in self.gpuIds]),
+            "SLURM_JOB_ID": self.job.jobId,
+            "label": self.job.label,
+            "hostname": self.job.hostname,
+            "procid": self.job.procId,
+            "n_gpus": len(self.job.gpuIds),
+            "gpu_ids": self.job.gpuIds,
             "start_time": start_time,
             "end_time": end_time,
             "duration": duration,
-            "tname": ", ".join([self.getGPUName(gpuId) for gpuId in self.gpuIds]),
             "sampling_time": self.samplingTime,
-            "n_samples": n_samples
+            "n_samples": n_samples,
+            "cmd": command[0]
         }
+
+        # Dump data to file
+        self.IO.dump(self.metadata, self.data)
+
+    # This function truncates the metrics to the smallest number of samples across all GPUs
+    # The return value is the number of samples.
+    def truncateData(self) -> int:
+        # Get smallest number of samples
+        n_samples = min([len(self.data[gpuId][metric]) for gpuId in self.data for metric in self.data[gpuId]])
+
+        # Truncate metrics to the smallest number of samples
+        for gpuId in self.data:
+            for metric in self.data[gpuId]:
+                self.data[gpuId][metric] = self.data[gpuId][metric][-n_samples:] 
+        
+        return n_samples
 
     def getCollectedData(self) -> list:
         return (self.metadata, self.metrics)
-    
-    def getGPUName(self, gpuId):
-        return f"{self.label}/{self.hostname}/gpu{gpuId}"

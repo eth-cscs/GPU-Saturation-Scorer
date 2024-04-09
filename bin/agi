@@ -33,7 +33,7 @@ if __name__ == '__main__':
     parser_profile.add_argument('--verbose', '-v', action='store_true', help='Print verbose GPU metrics to stdout')
     parser_profile.add_argument('--force-overwrite', '-f', action='store_true', help='Force overwrite of output file', default=False)
     parser_profile.add_argument('--append', '-a', action='store_true', help='Append profiling data to the output file', default=False)
-    parser_profile.add_argument('--output-file', '-o', metavar='output-file', type=str, default=None, help='Output SQL file for collected GPU metrics', required=True)
+    parser_profile.add_argument('--output-folder', '-o', metavar='output-folder', type=str, default=None, help='Output folder for the profiling data', required=True)
     parser_profile.add_argument('--dry-run', '-d', action='store_true', help='Debug flag used to run a workload through AGI without collecting any metrics.', default=False)
 
     # Analyze subcommand
