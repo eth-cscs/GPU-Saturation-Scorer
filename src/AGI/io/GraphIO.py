@@ -9,6 +9,7 @@ import seaborn as sns
 
 from AGI.profiler.metrics import gpuActivityMetrics, flopActivityMetrics, memoryActivityMetrics, allMetrics
 
+
 class GraphIO:
     def __init__(self) -> None:
         # Get timestamp for unique file names
@@ -17,40 +18,43 @@ class GraphIO:
     def br(self, s, n=15):
         # Break string into multiple lines to avoid overlapping
         return "\n".join([s[i:i+n] for i in range(0, len(s), n)])
-        
+
     # Plot usage map
     def plotMetricUsageMap(self, data, fname, title):
         # Ensure data is 1d numpy array
         values = data.to_numpy().flatten()
-        
+
         # Read labels as numpy array of strings from index of dataframe
         labels = data.index.to_numpy().astype(str)
-        labels = np.array([f"{self.br(label)}\n{round(value, 2)}" for value, label in zip(values,labels)])
-        
+        labels = np.array(
+            [f"{self.br(label)}\n{round(value, 2)}" for value, label in zip(values, labels)])
+
         # We want to plot a square heatmap so we need to compute the size of the square
         n = ceil(sqrt(len(values)))
-        
+
         # Pad with NaNs to make it square
-        values = np.pad(values, (0, n**2 - len(values)), mode='constant', constant_values=np.nan)
-        labels = np.pad(labels, (0, n**2 - len(labels)), mode='constant', constant_values='x')
-        
+        values = np.pad(values, (0, n**2 - len(values)),
+                        mode='constant', constant_values=np.nan)
+        labels = np.pad(labels, (0, n**2 - len(labels)),
+                        mode='constant', constant_values='x')
+
         # Reshape values into a square matrix
         values = values.reshape(n, n)
         labels = labels.reshape(n, n)
-        
+
         fig, ax = plt.subplots()
-                
+
         # Create heatmap
         ax = sns.heatmap(values,
-                        cmap="RdBu",
-                        annot=labels,
-                        fmt="s",
-                        clip_on=False,
-                        linecolor='black',
-                        linewidth=1.5,
-                        ax=ax,
-                        vmin=0,
-                        vmax=1)
+                         cmap="RdBu",
+                         annot=labels,
+                         fmt="s",
+                         clip_on=False,
+                         linecolor='black',
+                         linewidth=1.5,
+                         ax=ax,
+                         vmin=0,
+                         vmax=1)
 
         # Set title
         ax.set_title(title)
@@ -64,7 +68,7 @@ class GraphIO:
         plt.savefig(fname, format='pdf')
 
     # Plot usage map
-    def plotUsageMaps(self, data, metrics = allMetrics):
+    def plotUsageMaps(self, data, metrics=allMetrics):
         # Plot data for each job
         for tname, df in data.items():
             # Plot usage maps for each metric
@@ -76,19 +80,19 @@ class GraphIO:
     # Function that implements time-series plotting of the metrics.
     def plotDataFrameTimeSeries(self, df, fname, title, ymax=None):
         # Set ticks theme
-        #sns.set_theme("whitegrid")
+        # sns.set_theme("whitegrid")
 
         # Create a long-form DataFrame for Seaborn's lineplot function.
         # This involves melting the DataFrame so each row represents a single observation for a given variable.
         df_long = df.reset_index().melt('index', var_name='Columns', value_name='Values')
-        
+
         # Initialize the matplotlib figure for size, if desired.
         plt.figure(figsize=(10, 6))
 
         # Create a line plot with Seaborn. x='index' for the x-axis, and y='Values' for the y-axis.
         # The 'hue' parameter categorizes data points by the 'Columns' to differentiate lines.
         ax = sns.lineplot(data=df_long, x='index', y='Values', hue='Columns')
-        
+
         # Set the plot title and labels
         ax.set_title(title)
         ax.set_xlabel('Sample')
@@ -98,10 +102,10 @@ class GraphIO:
         if ymax is not None:
             plt.ylim(0, ymax)
 
-        # Adjust the legend to not distort plot, if necessary. 
+        # Adjust the legend to not distort plot, if necessary.
         ax.legend(title='Metrics', bbox_to_anchor=(1, 1), loc='upper left')
         plt.grid(0.8)
-        
+
         # Seaborn handles tight_layout internally, but we should call since we've manually adjusted the plot.
         plt.tight_layout()
 
@@ -113,21 +117,20 @@ class GraphIO:
         for tname, df in data.items():
             # Plot GPU activity
             self.plotDataFrameTimeSeries(df[gpuActivityMetrics],
-                            f"{tname}_gpu_activity_{self.tstamp}.pdf",
-                            f"{tname} GPU Activity",
-                                ymax=1.1
-                            )
+                                         f"{tname}_gpu_activity_{self.tstamp}.pdf",
+                                         f"{tname} GPU Activity",
+                                         ymax=1.1
+                                         )
 
             # Plot flop activity
             self.plotDataFrameTimeSeries(df[flopActivityMetrics],
-                                f"{tname}_flop_activity_{self.tstamp}.pdf",
-                                f"{tname} Floating Point Activity",
-                                ymax=1.1
-                                )
+                                         f"{tname}_flop_activity_{self.tstamp}.pdf",
+                                         f"{tname} Floating Point Activity",
+                                         ymax=1.1
+                                         )
 
             # Plot memory activity
             self.plotDataFrameTimeSeries(df[memoryActivityMetrics],
-                            f"{tname}_memory_activity_{self.tstamp}.pdf",
-                            f"{tname} Memory Activity"
-                            )
-        
+                                         f"{tname}_memory_activity_{self.tstamp}.pdf",
+                                         f"{tname} Memory Activity"
+                                         )

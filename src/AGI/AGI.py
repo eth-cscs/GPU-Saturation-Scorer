@@ -1,73 +1,69 @@
 import os
 
 # Driver functions for the profiler module
+
+
 class AGI:
     def __init__(self, args):
         self.args = args
 
-    def run(self):
+    def run(self) -> None:
         if self.args.subcommand == 'profile':
-            self.profile() 
+            self.profile()
         elif self.args.subcommand == 'analyze':
             self.analyze()
-            
-    def profile(self):
-        from .utils.dcgm import loadDCGM
-        from .io.MetricsDataIO import MetricsDataIO
+
+    def profile(self) -> None:
+        from .utils.dcgm import load_dcgm
+        from .io.metrics_data_io import MetricsDataIO
         from .utils.slurm_handler import SlurmJob
-        
+
         # Check if DCGM bindings are available before importing AGI modules
-        # This raises an exception if DCGM is not available
-        loadDCGM()
-        
+        load_dcgm()
+
         # Import AGI modules
-        from .profiler.GPUMetricsProfiler import GPUMetricsProfiler
-        
+        from .profiler.gpu_metrics_profiler import GPUMetricsProfiler
+
         # Create SlurmJob object - this will read the Slurm environment
-        # and throw an exception if something is wrong/missing/misconfigured
         job = SlurmJob(
-            output_folder = self.args.output_folder,
-            label = self.args.label
-            )
-            
+            output_folder=self.args.output_folder,
+            label=self.args.label
+        )
+
         # Create profiler object
         profiler = GPUMetricsProfiler(
             job=job,
-            samplingTime=self.args.sampling_time,
-            maxRuntime=self.args.max_runtime,
-            forceOverwrite=self.args.force_overwrite
+            sampling_time=self.args.sampling_time,
+            max_runtime=self.args.max_runtime,
+            force_overwrite=self.args.force_overwrite
         )
 
         # Run workload
         profiler.run(self.args.wrap)
-        
-        return 0
 
     # Driver function for the analyze module
-    def analyze(self):
+
+    def analyze(self) -> None:
         from .analysis.analysis import GPUMetricsAnalyzer
-        
+
         # Instantiate analyzer class
         analyzer = GPUMetricsAnalyzer(
-            inputFile=self.args.input_file,
-            detectOutliers=self.args.detect_outliers
-            )
+            input_file=self.args.input_file,
+            detect_outliers=self.args.detect_outliers
+        )
 
         # Print GPU information
         if self.args.show_metadata:
-            analyzer.showMetadata()
+            analyzer.show_metadata()
 
-        # Print summary of metricsx
-        if self.args.no_summary == False:
+        # Print summary of metrics
+        if not self.args.no_summary:
             analyzer.summary(self.args.verbosity)
-        
+
         # Plot time-series of metrics
         if self.args.plot_time_series:
-            analyzer.plotTimeSeries()
+            analyzer.plot_time_series()
 
         # Plot load-balancing of metrics
         if self.args.plot_load_balancing:
-            #print("Usage map plotting is temporarily disabled due to restructuring of the code.")
-            analyzer.plotUsageMap()
-        
-        return 0
+            analyzer.plot_usage_map()

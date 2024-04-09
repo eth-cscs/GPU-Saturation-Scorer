@@ -1,67 +1,64 @@
-# System imports
 import socket
 import os
 
 # Class used to interface with the Slurm environment variables
+
+
 class SlurmJob:
     def __init__(self, label: str = None, output_folder: str = None):
-        self.procId = None
-        self.jobId = None
+        self.proc_id = None
+        self.job_id = None
         self.hostname = None
-        self.gpuIds = None
+        self.gpu_ids = None
         self.label = label
         self.output_folder = output_folder
         self.output_file = None
 
         # Read the environment variables
-        self.readEnvironment()
+        self.read_environment()
 
     # Read the environment variables from the Slurm job and store them in the object
-    def readEnvironment(self):
+    def read_environment(self):
         # Function used to read environment variables
-        
+
         # Read job ID and process ID - throw exception if not found
-        self.jobId = int(self.readEnvVar("SLURM_JOB_ID", throw=True))
-        self.procId = int(self.readEnvVar("SLURM_PROCID", throw=True))
-        
+        self.job_id = int(self.read_env_var("SLURM_JOB_ID", throw=True))
+        self.proc_id = int(self.read_env_var("SLURM_PROCID", throw=True))
+
         # If no label has been set explicitly, use the job ID
         if self.label is None:
-            self.label = f"unlabeled_job_{self.jobId}"
-        
+            self.label = f"unlabeled_job_{self.job_id}"
+
         # Read GPU IDs - do not throw exception if not found
-        # If not found, use SLURM_procId mod 4 to determine GPU ID
-        # This is a workaround for when --gpus-per-task=1 is not set or when SLURM is not working properly
-        # It assumes that there is exactly one GPU per rank and 4 gpus per node.
-        # Also there is no guarantee that each rank will be assigned to the correct GPU.
-        errMsg = "SLURM_STEP_GPUS not found: try setting the --gpus-per-task flag. Using SLURM_PROCID mod 4 to determine GPU ID."
-        self.gpuIds = self.readEnvVar("SLURM_STEP_GPUS", throw=False, errMsg=errMsg)
-        
-        if self.gpuIds:
-            self.gpuIds = [int(gpu) for gpu in self.gpuIds.strip().split(',')]
+        error_msg = "SLURM_STEP_GPUS not found: try setting the --gpus-per-task flag. Using SLURM_PROCID mod 4 to determine GPU ID."
+        self.gpu_ids = self.read_env_var(
+            "SLURM_STEP_GPUS", throw=False, error_msg=error_msg)
+
+        if self.gpu_ids:
+            self.gpu_ids = [int(gpu)
+                            for gpu in self.gpu_ids.strip().split(',')]
         else:
-            self.gpuIds = [self.procId%4]
+            self.gpu_ids = [self.proc_id % 4]
 
         # Get hostname - this is done via the socket module and should always work regardless of the Slurm environment
         self.hostname = socket.gethostname()
 
         # Set output folder and file
         if not self.output_folder:
-            self.output_folder = f"AGI_JOB_{self.jobId}"
+            self.output_folder = f"AGI_JOB_{self.job_id}"
 
         # Set output file
-        self.output_file = f"{self.label}_proc_{self.procId}.json"
-    
-    def readEnvVar(self, varName: str, throw: bool = True, errMsg = None) -> str:
+        self.output_file = f"{self.label}_proc_{self.proc_id}.json"
+
+    def read_env_var(self, var_name: str, throw: bool = True, error_msg=None) -> str:
         try:
-            return os.environ[varName]
+            return os.environ[var_name]
         except KeyError:
-            if not errMsg:
-                errMsg = f"Environment variable {varName} not found. Check that you are launching this tool in a Slurm job."
-            
+            if not error_msg:
+                error_msg = f"Environment variable {var_name} not found. Check that you are launching this tool in a Slurm job."
+
             if throw:
-                raise Exception(errMsg)
+                raise Exception(error_msg)
             else:
-                print(f"WARNING: {errMsg}")
+                print(f"WARNING: {error_msg}")
                 return None
-
-

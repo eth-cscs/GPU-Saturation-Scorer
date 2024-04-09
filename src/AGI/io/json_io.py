@@ -1,16 +1,14 @@
-# This class is used to handle JSON data input/output
-
-# System imports
 import json
 import os
-
-# AGI imports
 from AGI.io.base_io import BaseIO
 
+# This class is used to handle JSON data input/output
+
+
 class JSONDataIO(BaseIO):
-    def __init__(self, file: str, forceOverwrite: bool = False) -> None:
+    def __init__(self, file: str, force_overwrite: bool = False) -> None:
         # Call parent constructor
-        super().__init__(file, forceOverwrite)
+        super().__init__(file, force_overwrite)
 
     # This function dumps the data to a JSON file
     def dump(self, metadata: dict, data: dict) -> None:

@@ -5,6 +5,8 @@ import pandas as pd
 from AGI.profiler.metrics import demangledMetricNames
 
 # Format pandas DataFrames to human-readable format
+
+
 def formatDataFrame(df: pd.DataFrame) -> pd.DataFrame:
     df_out = pd.DataFrame()
     for metric in df.columns:
@@ -13,10 +15,14 @@ def formatDataFrame(df: pd.DataFrame) -> pd.DataFrame:
     return df_out
 
 # Format floating point number to percentage with 2 decimal places
+
+
 def formatPercent(value):
     return f"{value * 100.0:.2f}%"
 
 # Format byte values to human-readable format
+
+
 def formatBytes(value):
     if value < 1024:
         return f"{value} B/s"
@@ -26,6 +32,7 @@ def formatBytes(value):
         return f"{value / 1024 ** 2:.2f} MB/s"
     else:
         return f"{value / 1024 ** 3:.2f} GB/s"
+
 
 metricNames2Formats = {
     "DEV_GPU_UTIL": formatPercent,
