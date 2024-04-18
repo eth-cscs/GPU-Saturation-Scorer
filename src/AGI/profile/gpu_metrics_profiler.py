@@ -1,7 +1,13 @@
+# DCGM imports
 from DcgmReader import DcgmReader
+
+# AGI imports
 from AGI.io.json_io import JSONDataIO
+from AGI.io.binary_io import BinaryDataIO
 from AGI.utils.slurm_handler import SlurmJob
-from AGI.profiler.metrics import metric_ids
+from AGI.profile.metrics import metric_ids
+
+# Other imports
 import time
 import uuid
 import subprocess
@@ -15,7 +21,7 @@ import os
 
 
 class GPUMetricsProfiler:
-    def __init__(self, job: SlurmJob, sampling_time: int = 500, max_runtime: int = 600, force_overwrite: bool = False) -> None:
+    def __init__(self, job: SlurmJob, sampling_time: int = 500, max_runtime: int = 600, force_overwrite: bool = False, output_format: str = "json") -> None:
         # Check if sampling time is too low
         if sampling_time < 20:
             print("Warning: sampling time is too low. Defaulting to 20ms.")
@@ -31,10 +37,20 @@ class GPUMetricsProfiler:
         # Generate GPU group UUID
         self.field_group_name = str(uuid.uuid4())
 
-        # Store reference to IOHandler
+        # Generate file path
         self.file_path = os.path.join(
             self.job.output_folder, self.job.output_file)
-        self.io = JSONDataIO(self.file_path, force_overwrite=force_overwrite)
+
+        # Initialize IO handler
+        if output_format == "json":
+            # Add .json extension
+            self.file_path += ".json"
+            self.io = JSONDataIO(self.file_path, force_overwrite=force_overwrite)
+        else: # Binary format
+            # Add .bin extension
+            self.file_path += ".bin"
+            self.io = BinaryDataIO(self.file_path, force_overwrite=force_overwrite)
+
         self.io.check_overwrite()  # Check if file exists and fail if necessary
 
         # Initialize DCGM reader
@@ -95,29 +111,25 @@ class GPUMetricsProfiler:
 
         # Compute timestamps
         end_time = time.time()
-        duration = end_time - start_time
-        start_time = datetime.datetime.fromtimestamp(
-            start_time).strftime('%Y/%m/%d-%H:%M:%S')
-        end_time = datetime.datetime.fromtimestamp(
-            end_time).strftime('%Y/%m/%d-%H:%M:%S')
+        elapsed = end_time - start_time
 
         # Truncate the metrics to the smallest number of samples
         n_samples = self.truncate_data()
 
         # Assemble the metadata
         self.metadata = {
-            "SLURM_JOB_ID": self.job.job_id,
+            "job_id": self.job.job_id,
             "label": self.job.label,
             "hostname": self.job.hostname,
-            "procid": self.job.proc_id,
+            "proc_id": self.job.proc_id,
             "n_gpus": len(self.job.gpu_ids),
             "gpu_ids": self.job.gpu_ids,
             "start_time": start_time,
             "end_time": end_time,
-            "duration": duration,
+            "elapsed": elapsed,
             "sampling_time": self.sampling_time,
             "n_samples": n_samples,
-            "cmd": command
+            "cmd": command.pop()
         }
 
         # Dump data to file

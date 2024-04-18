@@ -1,0 +1,34 @@
+import pickle
+import os
+from AGI.io.base_io import BaseIO
+
+# This class is used to handle JSON data input/output
+class BinaryDataIO(BaseIO):
+    def __init__(self, file: str, force_overwrite: bool = False) -> None:
+        # Call parent constructor
+        super().__init__(file, force_overwrite)
+
+    # This function dumps the data to a JSON file
+    def dump(self, metadata: dict, data: dict) -> None:
+        # Create directory if necessary
+        dirname = os.path.dirname(self.file)
+        if not os.path.exists(dirname):
+            # Create directory
+            os.makedirs(dirname)
+
+        # Combine metadata and data and write to file
+        with open(self.file, 'wb+') as f:
+            pickle.dump({'metadata': metadata, 'data': data}, f)
+
+    # This function loads the data from a JSON file
+    def load(self) -> tuple:
+        # Read data from file
+        with open(self.file, 'rb') as f:
+            data = pickle.load(f)
+
+        # Try to return metadata and data
+        try:
+            return data['metadata'], data['data']
+        except KeyError:
+            print(f"WARN: file {self.file} appears to be corrupted. Ignoring.")
+            return None, None

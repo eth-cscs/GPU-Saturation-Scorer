@@ -48,7 +48,7 @@ class SlurmJob:
             self.output_folder = f"AGI_JOB_{self.job_id}"
 
         # Set output file
-        self.output_file = f"{self.label}_proc_{self.proc_id}.json"
+        self.output_file = f"{self.label}_proc_{self.proc_id}"
 
     def read_env_var(self, var_name: str, throw: bool = True, error_msg=None) -> str:
         try:

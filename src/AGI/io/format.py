@@ -2,7 +2,7 @@
 import pandas as pd
 
 # AGI imports
-from AGI.profiler.metrics import demangledMetricNames
+from AGI.profile.metrics import demangledMetricNames
 
 # Format pandas DataFrames to human-readable format
 

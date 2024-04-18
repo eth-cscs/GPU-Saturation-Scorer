@@ -7,7 +7,7 @@ import pandas as pd
 from math import ceil, sqrt
 import seaborn as sns
 
-from AGI.profiler.metrics import gpuActivityMetrics, flopActivityMetrics, memoryActivityMetrics, allMetrics
+from AGI.profile.metrics import gpuActivityMetrics, flopActivityMetrics, memoryActivityMetrics, allMetrics
 
 
 class GraphIO:
