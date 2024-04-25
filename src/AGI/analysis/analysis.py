@@ -3,128 +3,117 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
 from scipy.special import expit as sigmoid  # Sigmoid function
+from tabulate import tabulate
 
 # AGI imports
-from AGI.io.MetricsDataIO import MetricsDataIO
+from AGI.io.sql_io import SQLIO
 from AGI.io.format import formatDataFrame
 from AGI.io.GraphIO import GraphIO
-from AGI.analysis.preprocessing import MetricsPreProcessor
-from AGI.analysis.aggregation import GPUMetricsAggregator
+from AGI.profile.metrics import gpu_activity_metrics, flop_activity_metrics, memory_activity_metrics, all_metrics
+# from AGI.analysis.preprocessing import MetricsPreProcessor
+# from AGI.analysis.aggregation import GPUMetricsAggregator
 
-
+# This class implements the high level analysis functions for GPU metrics.
+# When possible, data selection is done in the database itself instead of in memory.
+# This is done in order to maximize performance, minimize memory usage and improve readability and maintainability of the code.
 class GPUMetricsAnalyzer:
-    def __init__(self, inputFile: str, detectOutliers: str = "leading", detectionAlgorithm: str = "CPD", verbose: bool = False):
+    def __init__(self, db_file: str, detect_outliers: str = "leading", detection_algorithm: str = "CPD", verbose: bool = False):
         # Set up input variables
-        self.input_file = inputFile
+        self.db_file = db_file
         self.verbose = verbose
-        self.detectOutliers = detectOutliers
-        self.detectionAlgorithm = detectionAlgorithm
+        self.detect_outliers = detect_outliers
+        self.detection_algorithm = detection_algorithm
 
-        # Load data from file
-        io = MetricsDataIO(inputFile, readOnly=True)
-        self.metadata, self.data = io.load()
+        # Read data from database
+        self.db = SQLIO(self.db_file, read_only=True)
 
         # Create necessary objects
         # self.pp = MetricsPreProcessor(self.data)
-        self.aggregator = GPUMetricsAggregator(self.metadata, self.data)
+        # self.aggregator = GPUMetricsAggregator(self.metadata, self.data)
         self.plotter = GraphIO()
 
         # Call pre-processing functions
-        if self.detectOutliers != "none":
-            self.pp.removeOutliers(self.detectOutliers,
-                                   self.detectionAlgorithm)
+        # if self.detectOutliers != "none":
+        #     self.pp.removeOutliers(self.detectOutliers,
+        #                            self.detectionAlgorithm)
 
-    def plotUsageMap(self):
-        # For load balancing heatmap we aggregate over the time dimension.
-        # This will yield a single average value for each metric for each GPU.
-        data = self.aggregator.aggregateTime()
-        self.plotter.plotUsageMaps(data)
+    # def plotUsageMap(self):
+    #     # For load balancing heatmap we aggregate over the time dimension.
+    #     # This will yield a single average value for each metric for each GPU.
+    #     data = self.aggregator.aggregateTime()
+    #     self.plotter.plotUsageMaps(data)
 
-    def plotTimeSeries(self):
-        # For time series we aggregate over the space dimension.
-        # This will yield an average time-series for each metric over all GPUs.
-        data = self.aggregator.aggregateSpace()
-        self.plotter.plotTimeSeries(data)
+    def plot_time_series(self):
+        # Aggregate data over all processes and all GPUs
+        metadata = self.db.get_table("job_metadata")
 
-    # This function defines the efficiency score of a workload based on the
-    # collected metrics. The efficiency score is a measure of how well the
-    # GPU resources are being utilized and is modelled as an EOS (equation of state)
-    # The coefficients were determined by fitting on a synthetic dataset of GPU metrics.
-    def score(self, A, F, O):
-        # Parameters for the EOS function
-        alpha = 24.021653821773356
-        beta = 3.093540559022677
-        gamma = 2.0510278298480444
-        lambda_ = 11.44627875155378
+        for _, job in metadata.iterrows():
+            metrics = job["metrics"].split(",")
+            
+            # Aggregate data over all processes and all GPUs
+            data = self.db.query(f"""
+                                SELECT
+                                    sample_index,{','.join([f'AVG({m}) AS {m}' for m in metrics])}
+                                FROM
+                                    data
+                                WHERE
+                                    job_id={job['job_id']}
+                                GROUP BY
+                                    sample_index
+                                ORDER BY
+                                    sample_index ASC
+                                """)
 
-        term1 = sigmoid(alpha * A) - 0.5
-        term2 = sigmoid(beta * F + gamma * O * np.exp(- lambda_ * F)) - 0.5
-        return 4 * term1 * term2
-
-    def br(self):
-        print("="*73)
+            # Plot time series
+            self.plotter.plotTimeSeries(data)
 
     def summary(self, verbosity: str = "medium"):
-        # Get unique job ids
-        slurmJobIds = self.metadata['slurm_job_id'].unique()
+        # Get metadata for each job
+        metadata = self.db.get_table("job_metadata")
 
-        # Set verbosity
-        rows = None
-        cols = None
-        if verbosity == "low":
-            rows = ["mean", "min", "max"]
-            cols = ["EFFICIENCY_SCORE"]
-        if verbosity == "medium":
-            rows = ["mean", "median", "min", "max"]
-            cols = ["SM_ACTIVE", "SM_OCCUPANCY", "FLOP_ACTIVE",
-                    "DRAM_ACTIVE", "EFFICIENCY_SCORE"]
+        for _, job in metadata.iterrows(): # Note: iterrows is slow, but we only expect very few rows
+            # Get the raw data for the job
+            data = self.db.query(f"SELECT {job['metrics']} FROM data WHERE job_id={job['job_id']}")
+            
+            # Aggregate data
+            data = formatDataFrame(data.agg(['median', 'mean', 'min', 'max'])).T # Transpose to get metrics as rows
 
-        # Create summary for each job
-        self.br()
-        for jobId in slurmJobIds:
-            # Get data for this job
-            tnames = self.metadata[self.metadata['slurm_job_id']
-                                   == jobId]['tname'].unique()
+            # Print summary information
+            print(f"Job ID: {job['job_id']}")
+            print(f"Label: {job['label']}")
+            print(f"Command: \"{job['cmd']}\"")
+            print(f"No. hosts: {job['n_hosts']}")
+            print(f"No. processes: {job['n_procs']}")
+            print(f"No. GPUs: {job['n_gpus']}")
+            print(f"Median elapsed time: {job['median_elapsed']}s")
+            print(f"Aggregate metric values:")
+            print(tabulate(data))
+            print()
 
-            # Concatenate all dataframes
-            df = pd.concat([self.data[t]
-                           for t in tnames], ignore_index=True, axis=0)
+    # This function shows the metadata of the job and process
+    def show_metadata(self):
+        # Print Job Metadata
+        print("Job Metadata:")
+        print(self.db.get_table("job_metadata").to_string(index=False, max_colwidth=20))
+        print()
 
-            # Compute total FLOP activity
-            df["FLOP_ACTIVE"] = df['PIPE_FP16_ACTIVE'] + df['PIPE_FP32_ACTIVE'] + \
-                df['PIPE_FP64_ACTIVE'] + df['PIPE_TENSOR_CORE_ACTIVE']
+        # Print Process Metadata
+        print("Process Metadata:")
+        print(self.db.get_table("process_metadata").to_string(index=False, max_colwidth=20))
+        print()
 
-            # Compute efficeicy score
-            A = df["SM_ACTIVE"]
-            O = df["SM_OCCUPANCY"]
-            F = df["FLOP_ACTIVE"]
+        # Print GPU Metrics
+        print("GPU Metrics:")
+        # Get metrics for each job in the database 
+        data = self.db.query("SELECT job_id, metrics, cmd FROM job_metadata")
 
-            # Compute efficiency score
-            df['EFFICIENCY_SCORE'] = self.score(A, F, O)
-
-            # Compute aggregate metrics for each column
-            df = df.agg(['mean', 'median', 'min', 'max'])
-
-            # Print summary
-            # Get label
-            label = self.metadata[self.metadata['tname']
-                                  == tnames[0]]['label'].values[0]
-            print(f"Summary of GPU metrics for job {label}_{jobId}")
-
-            # Select only columns and cols of interest
-            if cols is not None:
-                df = df[cols]
-
-            if rows is not None:
-                df = df.loc[rows]
-
-            print(formatDataFrame(df).T.to_string())
-
-            self.br()
-
-    def showMetadata(self):
-        print("Metadata")
-        print(self.metadata)
-
-        print("Data")
-        print(self.data.keys())
+        # Print metrics for each job
+        for job_id, metrics, cmd in data.values:
+            print(f"Job ID: {job_id}")
+            print(f"Command: \"{cmd}\"")
+            print("Collected Metrics:")
+            
+            for m in metrics.split(","):
+                print(f"  {m}")
+            
+            print()

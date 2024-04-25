@@ -7,8 +7,9 @@ import numpy as np
 
 from AGI.io.json_io import JSONDataIO
 from AGI.io.binary_io import BinaryDataIO
+from AGI.io.sql_io import SQLIO
 
-import datetime
+from datetime import datetime
 
 class ExportDataHandler:
     def __init__(self, db_file: str, input_files: list, input_format: str, force_overwrite: bool = False, timeout: int = 900):
@@ -21,28 +22,11 @@ class ExportDataHandler:
         self.timeout = timeout
 
         # Establish connection to database
-        self.check_overwrite() # Check if the database file already exists
-        self.conn = self.establish_connection()
-        self.cursor = self.conn.cursor()
+        self.db = SQLIO(self.db_file, force_overwrite=self.force_overwrite)
+        self.db.check_overwrite()
+        
+        # Set the IO class based on the input format
         self.IO_class = JSONDataIO if self.input_format == "json" else BinaryDataIO
-
-    # Check if the database file already exists and throw an exception if it does
-    def check_overwrite(self):
-        if os.path.exists(self.db_file) and not self.force_overwrite:
-            raise Exception(f"Database file {self.db_file} already exists. Use -f flag to overwrite.")
-
-    # Establish connection to database
-    def establish_connection(self):
-        # Check if the database file already exists and delete it if it does
-        # The additional check for self.force_overwrite is redundant, as it is already checked in check_overwrite()
-        # but better to be safe than sorry.
-        if os.path.exists(self.db_file) and self.force_overwrite: 
-            os.remove(self.db_file)
-
-        try:
-            return sqlite3.connect(self.db_file, timeout=self.timeout)
-        except Exception as e:
-            raise Exception(f"Failed to connect to database: {e}")
 
     # This function reads the input files and converts them to a common format
     def read_files(self) -> list:
@@ -79,7 +63,7 @@ class ExportDataHandler:
                 df["gpu_id"] = gpu_id
                 df["sample_index"] = np.arange(len(df))
 
-            df.to_sql("data", self.conn, if_exists="append", index=False)
+            self.db.append_to_table("data", df)
 
         print("OK.")
 
@@ -105,9 +89,9 @@ class ExportDataHandler:
                     "proc_id": metadata["proc_id"],
                     "hostname": metadata["hostname"],
                     "n_gpus": metadata["n_gpus"],
-                    "gpu_ids": ", ".join([str(gpu_id) for gpu_id in metadata["gpu_ids"]]),
-                    "start_time": metadata["start_time"],
-                    "end_time": metadata["end_time"],
+                    "gpu_ids": ",".join([str(gpu_id) for gpu_id in metadata["gpu_ids"]]),
+                    "start_time": datetime.datetime.fromtimestamp(metadata["start_time"]).strftime("%Y-%m-%d %H:%M:%S"),
+                    "end_time": datetime.datetime.fromtimestamp(metadata["end_time"]).strftime("%Y-%m-%d %H:%M:%S"),
                     "elapsed": metadata["elapsed"]
                 })
         
@@ -115,7 +99,7 @@ class ExportDataHandler:
         df = pd.DataFrame(process_metadata)
 
         # Write the DataFrame to the database
-        df.to_sql("process_metadata", self.conn, if_exists="replace", index=False)
+        self.db.create_table("process_metadata", df, if_exists="replace")
 
         print("OK.")
 
@@ -139,25 +123,29 @@ class ExportDataHandler:
     def create_job_metadata_table(self, data: list):
         print("Exporting job metadata...", end="")
         
+        # Compute start and end times
+        median_start_time = datetime.fromtimestamp(np.median([d[0]["start_time"] for d in data])).strftime("%Y-%m-%d %H:%M:%S")
+        median_end_time = datetime.fromtimestamp(np.median([d[0]["end_time"] for d in data])).strftime("%Y-%m-%d %H:%M:%S")
+
         job_metadata = [{
-            "job_id": data[0][0]["job_id"], # Assume all input files have the same job ID
-            "label": data[0][0]["label"], # Assume all input files have the same label
-            "n_hosts": len(set(d[0]["hostname"] for d in data)), # Count unique hostnames
-            "hostnames": ", ".join(list(set(d[0]["hostname"] for d in data))), # Concatenate unique hostnames
-            "n_procs": len(data), # Count the number of processes - one per input file
-            "n_gpus": sum(d[0]["n_gpus"] for d in data), # Sum the number of GPUs used by each process
-            "avg_start_time": np.median([d[0]["start_time"] for d in data]), # Compute the average start time (median for robustness
-            "avg_end_time": np.median([d[0]["end_time"] for d in data]), # Compute the average end time
-            "avg_elapsed": np.median([d[0]["elapsed"] for d in data]), # Compute the average elapsed time
-            "metrics": ", ".join(list(data[0][1][0].keys())), # Assume all input files have the same metrics
-            "cmd": data[0][0]["cmd"] # Assume all input run the same command
+            "job_id": data[0][0]["job_id"],                                      # Assume all input files have the same job ID
+            "label": data[0][0]["label"],                                        # Assume all input files have the same label
+            "n_hosts": len(set(d[0]["hostname"] for d in data)),                 # Count unique hostnames
+            "hostnames": ",".join(list(set(d[0]["hostname"] for d in data))),    # Concatenate unique hostnames
+            "n_procs": len(data),                                                # Count the number of processes - one per input file
+            "n_gpus": sum(d[0]["n_gpus"] for d in data),                         # Sum the number of GPUs used by each process
+            "median_start_time": median_start_time,                              # Median start time
+            "median_end_time": median_end_time,                                  # Median end time
+            "median_elapsed": np.median([d[0]["elapsed"] for d in data]),        # Compute the average elapsed time
+            "metrics": ",".join(list(data[0][1][0].keys())),                     # Assume all input files have the same metrics
+            "cmd": data[0][0]["cmd"]                                             # Assume all input run the same command
         }]
 
         # Convert the dictionary to a DataFrame
         df = pd.DataFrame(job_metadata)
 
         # Write the DataFrame to the database
-        df.to_sql("job_metadata", self.conn, if_exists="replace", index=False)
+        self.db.create_table("job_metadata", df, if_exists="replace")
 
         print("OK.")
 

@@ -1,3 +1,18 @@
+###############################################################
+# Project: Alps GPU Insight
+#
+# File Name: gpu_metrics_profiler.py
+#
+# Description:
+# This file implements the GPUMetricsProfiler class, which is used to
+# profile GPU metrics. The GPUMetricsProfiler class is responsible for
+# collecting GPU metrics data using DCGM.
+#
+# Authors:
+# Marcel Ferrari (CSCS)
+#
+###############################################################
+
 # DCGM imports
 from DcgmReader import DcgmReader
 
@@ -17,11 +32,58 @@ import datetime
 import json
 import os
 
-# Main class used to run AGI
-
-
 class GPUMetricsProfiler:
+    """
+    Description:
+    This class is used to profile GPU metrics. This is done via the DCGM bindings,
+    specifically the DcgmReader class. This means that this class is only
+    compatible with NVIDIA GPUs.
+
+    Attributes:
+    - job: The SlurmJob object that represents the job being profiled.
+    - sampling_time: The sampling time in milliseconds.
+    - max_runtime: The maximum runtime in seconds. If set to <= 0, the profiler will run indefinitely.
+    - metadata: A dictionary containing metadata about the profiling run.
+    - data: A dictionary containing the collected metrics data.
+    - field_group_name: A unique identifier for the GPU group.
+    - file_path: The path to the output file where the data will be stored.
+    - io: The data IO handler.
+    - dr: The DcgmReader object used to collect the metrics data.
+
+    Methods:
+    - __init__(self, job, sampling_time, max_runtime, force_overwrite, output_format): Constructor method.
+    - run(self, command): Run the profiler.
+    - truncate_data(self): Truncate the collected data to the smallest number of samples.
+    - get_collected_data(self): Get the collected metadata and data.
+
+    Notes:
+    - The profiler supports two output formats: JSON and binary. The default is JSON as it is human-readable,
+      but binary is recommended for large datasets as it is more efficient.
+    - Currently, this is the main profiling class in AGI, however in the future support for CPU profiling
+      as well as MPI/NCCL profiling will be added.
+
+    """
     def __init__(self, job: SlurmJob, sampling_time: int = 500, max_runtime: int = 600, force_overwrite: bool = False, output_format: str = "json") -> None:
+        """
+        Description:
+        Constructor method for the GPUMetricsProfiler class.
+
+        Parameters:
+        - job: The SlurmJob object that represents the job being profiled.
+        - sampling_time: The sampling time in milliseconds. Must be >= 20ms.
+        - max_runtime: The maximum runtime in seconds. If set to <= 0, the profiler will run indefinitely.
+        - force_overwrite: If True, the profiler will overwrite the output file if it already exists.
+        - output_format: The output format for the data. Can be either "json" or "binary".
+
+        Returns:
+        - None
+
+        Notes:
+        - The default sampling time is 500ms.
+        - The default maximum runtime is 600s.
+        - The default output format is JSON.
+        - The default value for force_overwrite is False.
+        """
         # Check if sampling time is too low
         if sampling_time < 20:
             print("Warning: sampling time is too low. Defaulting to 20ms.")
@@ -58,6 +120,20 @@ class GPUMetricsProfiler:
                              updateFrequency=int(self.sampling_time * 1000))  # Convert from milliseconds to microseconds
 
     def run(self, command: str) -> None:
+        """
+        Description:
+        Run the profiler.
+
+        Parameters:
+        - command: The command to profile.
+
+        Returns:
+        - None
+
+        Notes:
+        - The profiler will run indefinitely if max_runtime is set to <= 0.
+        Else, it will run for max_runtime seconds before killing the process.
+        """
         # Record start time
         start_time = time.time()
 
@@ -99,7 +175,7 @@ class GPUMetricsProfiler:
             # Check if the process has completed
             if process.poll() is not None:
                 if process.returncode != 0:
-                    raise Exception(
+                    sys.exit(
                         "The profiled command returned a non-zero exit code.")
                 break
 
@@ -136,6 +212,22 @@ class GPUMetricsProfiler:
         self.io.dump(self.metadata, self.data)
 
     def truncate_data(self) -> int:
+        """
+        Description:
+        Truncate the collected data to the smallest number of samples.
+
+        Parameters:
+        - None
+
+        Returns:
+        - n_samples: The smallest number of samples collected.
+
+        Notes:
+        - This method is used to ensure that all metrics have the same number of samples.
+          Sometimes, due to the timing of the profiler, some metrics may have more samples than others
+          and it is necessary to truncate in order to ensure that there are no missing values in the data.
+        - Truncation is done by discarding the first samples as they are usually not representative of the workload.
+        """
         # Get smallest number of samples
         n_samples = min([len(self.data[gpu_id][metric])
                         for gpu_id in self.data for metric in self.data[gpu_id]])

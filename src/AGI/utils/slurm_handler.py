@@ -1,11 +1,62 @@
+###############################################################
+# Project: Alps GPU Insight
+#
+# File Name: slurm_handler.py
+#
+# Description:
+# This file implements the SlurmJob class, which is used to
+# interface with the Slurm environment variables. This class
+# is used to read the environment variables and store them in
+# the object for easy access.
+#
+# Authors:
+# Marcel Ferrari (CSCS)
+#
+###############################################################
+
 import socket
 import os
-
-# Class used to interface with the Slurm environment variables
-
+import sys
 
 class SlurmJob:
-    def __init__(self, label: str = None, output_folder: str = None):
+    """
+    Description:
+    This class is used to interface with the Slurm environment variables.
+    It reads the environment variables and stores them in the object for easy access.
+
+    Attributes:
+    - proc_id: The process ID of the current job.
+    - job_id: The job ID of the current job.
+    - hostname: The hostname of the current node.
+    - gpu_ids: The GPU IDs assigned to the current job.
+    - label: The label of the current job.
+    - output_folder: The output folder of the current job. 
+    - output_file: The output file of the current job.
+
+    Methods:
+    - __init__(self, label: str = None, output_folder: str = None): Constructor method.
+    - read_environment(self): Read the environment variables from the Slurm job and store them in the object.
+    - read_env_var(self, var_name: str, throw: bool = True, error_msg=None) -> str: Read an environment variable and return its value.
+
+    Notes:
+    - None
+
+    """
+    def __init__(self, label: str = None, output_folder: str = None) -> None:
+        """
+        Description:
+        Constructor method.
+
+        Parameters:
+        - label: The label of the current job. Used to identify which workload is being profiled.
+        - output_folder: The output folder of the current job. Used to dump the output profiling data.
+
+        Returns:
+        - None
+
+        Notes:
+        - None
+        """
         self.proc_id = None
         self.job_id = None
         self.hostname = None
@@ -17,8 +68,24 @@ class SlurmJob:
         # Read the environment variables
         self.read_environment()
 
-    # Read the environment variables from the Slurm job and store them in the object
-    def read_environment(self):
+    
+    def read_environment(self) -> None:
+        """
+        Description:
+        This method reads the environment variables from the Slurm job and stores them in the object.
+
+        Parameters:
+        - None
+
+        Returns:
+        - None
+
+        Notes:
+        - AGI uses the following environment variables: SLURM_JOB_ID, SLURM_PROCID, SLURM_STEP_GPUS.
+        - If SLURM_STEP_GPUS is not found, the method will use SLURM_PROCID mod 4 to determine the GPU ID.
+          This is only a workaround and may not work in all cases.
+        - The method will throw an error if SLURM_JOB_ID or SLURM_PROCID are not found.
+        """
         # Function used to read environment variables
 
         # Read job ID and process ID - throw exception if not found
@@ -50,7 +117,22 @@ class SlurmJob:
         # Set output file
         self.output_file = f"{self.label}_proc_{self.proc_id}"
 
-    def read_env_var(self, var_name: str, throw: bool = True, error_msg=None) -> str:
+    def read_env_var(self, var_name: str, throw: bool = True, error_msg: str = None) -> str:
+        """
+        Description:
+        This method reads an environment variable and returns its value.
+
+        Parameters:
+        - var_name: The name of the environment variable to read.
+        - throw: If True, the method will throw an error if the environment variable is not found.
+        - error_msg: The error message to display if the environment variable is not found.
+
+        Returns:
+        - The value of the environment variable in string format.
+
+        Notes:
+        - If the environment variable is not found, the method will throw an error if throw is True.
+        """
         try:
             return os.environ[var_name]
         except KeyError:
@@ -58,7 +140,7 @@ class SlurmJob:
                 error_msg = f"Environment variable {var_name} not found. Check that you are launching this tool in a Slurm job."
 
             if throw:
-                raise Exception(error_msg)
+                sys.exit(error_msg)
             else:
                 print(f"WARNING: {error_msg}")
                 return None

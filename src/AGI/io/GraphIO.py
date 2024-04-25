@@ -7,7 +7,7 @@ import pandas as pd
 from math import ceil, sqrt
 import seaborn as sns
 
-from AGI.profile.metrics import gpuActivityMetrics, flopActivityMetrics, memoryActivityMetrics, allMetrics
+from AGI.profile.metrics import gpu_activity_metrics, flop_activity_metrics, memory_activity_metrics, all_metrics
 
 
 class GraphIO:
@@ -68,7 +68,7 @@ class GraphIO:
         plt.savefig(fname, format='pdf')
 
     # Plot usage map
-    def plotUsageMaps(self, data, metrics=allMetrics):
+    def plotUsageMaps(self, data, metrics=all_metrics):
         # Plot data for each job
         for tname, df in data.items():
             # Plot usage maps for each metric
@@ -113,24 +113,23 @@ class GraphIO:
         plt.savefig(fname, format='pdf')
 
     # Interface method that plots the time series of the metrics
-    def plotTimeSeries(self, data):
-        for tname, df in data.items():
-            # Plot GPU activity
-            self.plotDataFrameTimeSeries(df[gpuActivityMetrics],
-                                         f"{tname}_gpu_activity_{self.tstamp}.pdf",
-                                         f"{tname} GPU Activity",
-                                         ymax=1.1
-                                         )
+    def plotTimeSeries(self, df):
+        # Plot GPU activity
+        self.plotDataFrameTimeSeries(df[gpu_activity_metrics],
+                                        f"gpu_activity_{self.tstamp}.pdf",
+                                        f"GPU Activity",
+                                        ymax=1.1
+                                        )
 
-            # Plot flop activity
-            self.plotDataFrameTimeSeries(df[flopActivityMetrics],
-                                         f"{tname}_flop_activity_{self.tstamp}.pdf",
-                                         f"{tname} Floating Point Activity",
-                                         ymax=1.1
-                                         )
+        # Plot flop activity
+        self.plotDataFrameTimeSeries(df[flop_activity_metrics],
+                                        f"flop_activity_{self.tstamp}.pdf",
+                                        f"Floating Point Activity",
+                                        ymax=1.1
+                                        )
 
-            # Plot memory activity
-            self.plotDataFrameTimeSeries(df[memoryActivityMetrics],
-                                         f"{tname}_memory_activity_{self.tstamp}.pdf",
-                                         f"{tname} Memory Activity"
-                                         )
+        # Plot memory activity
+        self.plotDataFrameTimeSeries(df[memory_activity_metrics],
+                                        f"memory_activity_{self.tstamp}.pdf",
+                                        f"Memory Activity"
+                                        )
