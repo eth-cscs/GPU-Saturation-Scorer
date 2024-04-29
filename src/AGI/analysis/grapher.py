@@ -105,9 +105,7 @@ class Grapher:
         # This involves melting the DataFrame so each row represents a single observation for a given variable.
         print(df.columns)
         df_long = df.melt('time', var_name='Columns', value_name='Values')
-        print(df_long["Values"].max())
         
-
         # Initialize the matplotlib figure for size, if desired.
         plt.figure(figsize=(10, 6))
 
