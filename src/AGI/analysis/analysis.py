@@ -1,23 +1,71 @@
+###############################################################
+# Project: Alps GPU Insight
+#
+# File Name: analysis.py
+#
+# Description:
+# This file contains the implementation of the high level analysis
+# functions for GPU metrics. AGI provides some quick and easy to use
+# options for basic data analysis and visualization, however it is
+# not intended to be a full-fledged data analysis tool. For more
+# advanced analysis, users are encouraged to handle the raw data
+# themselves.
+#
+# Authors:
+# Marcel Ferrari (CSCS)
+#
+###############################################################
+
 # External imports
 import numpy as np
 import pandas as pd
-from sklearn.cluster import KMeans
-from scipy.special import expit as sigmoid  # Sigmoid function
-from tabulate import tabulate
+
 
 # AGI imports
 from AGI.io.sql_io import SQLIO
-from AGI.io.format import formatDataFrame
-from AGI.io.GraphIO import GraphIO
-from AGI.profile.metrics import gpu_activity_metrics, flop_activity_metrics, memory_activity_metrics, all_metrics
-# from AGI.analysis.preprocessing import MetricsPreProcessor
-# from AGI.analysis.aggregation import GPUMetricsAggregator
+from AGI.io.format import *
+from AGI.analysis.grapher import Grapher
+from AGI.profile.metrics import gpu_activity_metrics, flop_activity_metrics, memory_activity_metrics
 
-# This class implements the high level analysis functions for GPU metrics.
-# When possible, data selection is done in the database itself instead of in memory.
-# This is done in order to maximize performance, minimize memory usage and improve readability and maintainability of the code.
 class GPUMetricsAnalyzer:
+    """
+    Description:
+    This class implements the high level analysis functions for GPU metrics.
+    
+    Attributes:
+    - db_file (str): Path to the SQLite database file.
+    - detect_outliers (str): Flag to enable outlier detection.
+    - detection_algorithm (str): Algorithm to use for outlier detection.
+    - verbose (bool): Flag to enable verbose output.
+
+    Methods:
+    - __init__(self, db_file: str, detect_outliers: str = "leading", detection_algorithm: str = "CPD", verbose: bool = False): Constructor method.
+    - plotUsageMap(self): Plot a heatmap of the GPU usage.
+    - plotTimeSeries(self): Plot the time series of the GPU metrics.
+    - summary(self, verbosity: str = "medium"): Print a summary of the GPU metrics.
+    - showMetadata(self): Print the metadata of the jobs and processes.
+
+    Notes:
+    - This class is intended to provide some quick and easy to use options for basic data analysis and visualization.
+    - This is not a full-fledged data analysis tool and as such only the default profiling metrics are supported.
+    - When possible, data manipulation should be done via SQL queries for performance and readability.
+    """
     def __init__(self, db_file: str, detect_outliers: str = "leading", detection_algorithm: str = "CPD", verbose: bool = False):
+        """
+        Description:
+        Constructor method.
+
+        Parameters:
+        - db_file (str): Path to the SQLite database file.
+        - detect_outliers (str): Flag to enable outlier detection.
+        - detection_algorithm (str): Algorithm to use for outlier detection.
+
+        Returns:
+        - None
+
+        Notes:
+        - Outlier detection is temporarily disabled.
+        """
         # Set up input variables
         self.db_file = db_file
         self.verbose = verbose
@@ -30,7 +78,7 @@ class GPUMetricsAnalyzer:
         # Create necessary objects
         # self.pp = MetricsPreProcessor(self.data)
         # self.aggregator = GPUMetricsAggregator(self.metadata, self.data)
-        self.plotter = GraphIO()
+        self.grapher = Grapher()
 
         # Call pre-processing functions
         # if self.detectOutliers != "none":
@@ -44,6 +92,19 @@ class GPUMetricsAnalyzer:
     #     self.plotter.plotUsageMaps(data)
 
     def plot_time_series(self):
+        """
+        Description:
+        This method plots time series of the GPU metrics.
+
+        Parameters:
+        - None
+
+        Returns:
+        - None
+
+        Notes:
+        - Only the default profiling metrics are supported.
+        """
         # Aggregate data over all processes and all GPUs
         metadata = self.db.get_table("job_metadata")
 
@@ -53,67 +114,99 @@ class GPUMetricsAnalyzer:
             # Aggregate data over all processes and all GPUs
             data = self.db.query(f"""
                                 SELECT
-                                    sample_index,{','.join([f'AVG({m}) AS {m}' for m in metrics])}
+                                    time,{','.join([f'AVG({m}) AS {m}' for m in metrics])}
                                 FROM
                                     data
                                 WHERE
                                     job_id={job['job_id']}
                                 GROUP BY
-                                    sample_index
+                                    time
                                 ORDER BY
-                                    sample_index ASC
+                                    time ASC
                                 """)
+            
+            # Get label for the job as job id + label
+            label = f"{job['job_id']}_{job['label']}"
 
-            # Plot time series
-            self.plotter.plotTimeSeries(data)
+            # Remap GPU metrics that are in integer percentages to floats
+            data["gpu_utilization"] = data["gpu_utilization"] / 100.
+            data["mem_copy_utilization"] = data["mem_copy_utilization"] / 100.
 
+            # Plot GPU activity
+            self.grapher.plot_time_series(data[["time"] + gpu_activity_metrics],
+                                            f"{label}_gpu_activity.pdf",
+                                            f"{label} GPU Activity",
+                                            ymax=1.1
+                                            )
+
+            # Plot flop activity
+            self.grapher.plot_time_series(data[["time"] + flop_activity_metrics],
+                                            f"{label}_flop_activity.pdf",
+                                            f"{label} Floating Point Activity",
+                                            ymax=1.1
+                                            )
+
+            # Plot memory activity - this is a bit more complex as we need to 
+            # adjust the unit of the data
+            
+            # Get the maximum value in the dataframe
+            maxval = data[memory_activity_metrics].max(numeric_only=True).max()
+
+            # Determine the appropriate unit
+            if maxval > 1e9:
+                scale = 1e9
+                unit = "GB/s"
+            elif maxval > 1e6:
+                scale = 1e6
+                unit = "MB/s"
+            elif maxval > 1e3:
+                scale = 1e3
+                unit = "KB/s"
+            else:
+                scale = None
+                unit = "B/s"
+
+            # Get the memory activity data
+            df_memory = data[["time"] + memory_activity_metrics].copy()
+            
+            # Scake data uf needed
+            if scale:
+                df_memory[memory_activity_metrics] = df_memory[memory_activity_metrics] / scale
+
+            self.grapher.plot_time_series(df_memory,
+                                            f"{label}_memory_activity.pdf",
+                                            f"{label} Memory Activity ({unit})"
+                                        )
+            
     def summary(self, verbosity: str = "medium"):
         # Get metadata for each job
         metadata = self.db.get_table("job_metadata")
 
+        print_title("Summary of Metrics:")
         for _, job in metadata.iterrows(): # Note: iterrows is slow, but we only expect very few rows
             # Get the raw data for the job
             data = self.db.query(f"SELECT {job['metrics']} FROM data WHERE job_id={job['job_id']}")
             
             # Aggregate data
-            data = formatDataFrame(data.agg(['median', 'mean', 'min', 'max'])).T # Transpose to get metrics as rows
+            data = format_df(data.agg(['median', 'mean', 'min', 'max'])).T # Transpose to get metrics as rows
 
-            # Print summary information
-            print(f"Job ID: {job['job_id']}")
-            print(f"Label: {job['label']}")
-            print(f"Command: \"{job['cmd']}\"")
-            print(f"No. hosts: {job['n_hosts']}")
-            print(f"No. processes: {job['n_procs']}")
-            print(f"No. GPUs: {job['n_gpus']}")
-            print(f"Median elapsed time: {job['median_elapsed']}s")
-            print(f"Aggregate metric values:")
-            print(tabulate(data))
-            print()
+            print_summary(job, data)
 
     # This function shows the metadata of the job and process
     def show_metadata(self):
         # Print Job Metadata
-        print("Job Metadata:")
-        print(self.db.get_table("job_metadata").to_string(index=False, max_colwidth=20))
-        print()
+        print_title("Job Metadata:")
+        data = self.db.get_table("job_metadata")
+        # Trim problematic columns
+        data[['hostnames', 'metrics']] = trim_df(data[['hostnames', 'metrics']].copy())
+        print_df(data)
 
         # Print Process Metadata
-        print("Process Metadata:")
-        print(self.db.get_table("process_metadata").to_string(index=False, max_colwidth=20))
-        print()
+        print_title("Process Metadata:")
+        data = self.db.get_table("process_metadata")
+        print_df(data)
 
         # Print GPU Metrics
-        print("GPU Metrics:")
-        # Get metrics for each job in the database 
-        data = self.db.query("SELECT job_id, metrics, cmd FROM job_metadata")
-
-        # Print metrics for each job
-        for job_id, metrics, cmd in data.values:
-            print(f"Job ID: {job_id}")
-            print(f"Command: \"{cmd}\"")
-            print("Collected Metrics:")
-            
-            for m in metrics.split(","):
-                print(f"  {m}")
-            
-            print()
+        print_title("Job Metrics:")
+        data = self.db.query("SELECT job_id, metrics, label FROM job_metadata")
+        print_metrics(data)

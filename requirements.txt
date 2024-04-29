@@ -5,3 +5,5 @@ ruptures
 scipy
 matplotlib
 seaborn
+tabulate
+rich

@@ -4,7 +4,7 @@
 # File Name: format.py
 #
 # Description:
-# This file contains convenience functions to format pandas DataFrames
+# This file contains convenience functions to format CLI output
 # to human-readable format.
 #
 # Authors:
@@ -13,8 +13,124 @@
 ###############################################################
 
 import pandas as pd
+from tabulate import tabulate
+from rich import print as rprint
 
-def format_DataFrame(df: pd.DataFrame) -> pd.DataFrame:
+def print_summary(job, data):
+    # Print summary information about the job
+    # This is done via tabulate to format the output
+    metadata = [
+    [f"Job ID: {job['job_id']}"],
+    [f"Label: {job['label']}"],
+    [f"Command: \"{job['cmd']}\""],
+    [f"No. hosts: {job['n_hosts']}"],
+    [f"No. processes: {job['n_procs']}"],
+    [f"No. GPUs: {job['n_gpus']}"],
+    [f"Median elapsed time: {job['median_elapsed']:.2f}s"],
+    [f"Aggregate metric values:"]
+    ]
+
+    print(tabulate(metadata, tablefmt='psql', headers=['Job Metadata']))
+    print_df(data, show_index=True)  # Show index to display metrics
+
+def print_metrics(data: pd.DataFrame) -> None:
+    """
+    Description:
+    This function prints the metrics for each job to the console.
+
+    Parameters:
+    - data: The pandas DataFrame containing the metrics data.
+
+    Returns:
+    - None
+
+    Notes:
+    - The DataFrame should have the following columns:
+      * job_id: The job ID.
+      * metrics: The collected metrics.
+      * cmd: The command that was executed.
+    """
+
+    # Print metrics for each job
+    for job_id, metrics, label in data.values:
+        # print(f"Job ID: {job_id}")
+        # print(f"Command: \"{cmd}\"")
+        # print("Collected Metrics:")
+        header = (f'Job ID: {job_id}\n'
+                  f'Label: {label}\n'
+                  'Collected Metrics:')
+        
+        # This is a workaround to be able to use
+        # tabulate with a single column
+        m = [[m] for m in metrics.split(",")]
+
+        # Print metrics using tabulate
+        print(tabulate(m, tablefmt='psql', headers=[header]))
+
+    print()
+
+def wrap_text(text: str, n: int = 20) -> str:
+    """
+    Description:
+    This function wraps text to a maximum length of n characters.
+
+    Parameters:
+    - text: The text to wrap.
+    - n: The maximum length to wrap to.
+
+    Returns:
+    - The wrapped text.
+    """
+    return "\n".join([text[i:i+n] for i in range(0, len(text), n)])
+
+def trim_df(data: pd.DataFrame, n: int = 20) -> pd.DataFrame:
+    """
+    Description:
+    This function trims the data in a pandas DataFrame to a maximum length of n characters.
+
+    Parameters:
+    - data: The pandas DataFrame to trim.
+    - n: The maximum length to trim to.
+    """
+    for col in data.columns:
+        data[col] = data[col].apply(lambda x: x[:n-3] + "..." if len(x) > n else x)
+    
+    return data
+
+def print_title(title: str, color: str = "green") -> None:
+    """
+    Description:
+    This function prints a title to the console.
+
+    Parameters:
+    - title: The title to print.
+    - color: The color of the title.
+
+    Returns:
+    - None
+    """
+    rprint(f"[bold][{color}]{title}[/]")
+
+def print_df(df: pd.DataFrame, show_index: bool = False) -> None:
+    """
+    Description:
+    This function prints a pandas DataFrame to the console.
+
+    Parameters:
+    - df: The pandas DataFrame to print.
+    - show_index: Flag to show the index.
+
+    Returns:
+    - None
+    """
+    print(tabulate(df,
+                   headers='keys',
+                   tablefmt='psql',
+                   maxcolwidths=20,
+                   showindex=show_index))
+    print()
+
+def format_df(df: pd.DataFrame) -> pd.DataFrame:
     """
     Description:
     This function formats a pandas DataFrame to human-readable format.
