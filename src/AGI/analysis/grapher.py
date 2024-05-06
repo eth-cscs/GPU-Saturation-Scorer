@@ -103,7 +103,6 @@ class Grapher:
 
         # Create a long-form DataFrame for Seaborn's lineplot function.
         # This involves melting the DataFrame so each row represents a single observation for a given variable.
-        print(df.columns)
         df_long = df.melt('time', var_name='Columns', value_name='Values')
         
         # Initialize the matplotlib figure for size, if desired.

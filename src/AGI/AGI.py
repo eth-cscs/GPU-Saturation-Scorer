@@ -122,7 +122,7 @@ class AGI:
             sampling_time=self.args.sampling_time,
             max_runtime=self.args.max_runtime,
             force_overwrite=self.args.force_overwrite,
-            output_format=self.args.output_format
+            output_format=self.args.format
         )
 
         # Run workload
@@ -206,8 +206,7 @@ class AGI:
 
         # Instantiate analyzer class
         analyzer = GPUMetricsAnalyzer(
-            db_file=self.args.input_file,
-            detect_outliers=self.args.detect_outliers
+            db_file=self.args.input_file
         )
 
         # Print GPU information
@@ -215,8 +214,8 @@ class AGI:
             analyzer.show_metadata()
 
         # Print summary of metrics
-        if not self.args.no_summary:
-            analyzer.summary(self.args.verbosity)
+        if not self.args.no_report:
+            analyzer.report()
 
         # Plot time-series of metrics
         if self.args.plot_time_series:

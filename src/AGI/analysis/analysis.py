@@ -34,12 +34,9 @@ class GPUMetricsAnalyzer:
     
     Attributes:
     - db_file (str): Path to the SQLite database file.
-    - detect_outliers (str): Flag to enable outlier detection.
-    - detection_algorithm (str): Algorithm to use for outlier detection.
-    - verbose (bool): Flag to enable verbose output.
 
     Methods:
-    - __init__(self, db_file: str, detect_outliers: str = "leading", detection_algorithm: str = "CPD", verbose: bool = False): Constructor method.
+    - __init__(self, db_file: str): Constructor method.
     - plotUsageMap(self): Plot a heatmap of the GPU usage.
     - plotTimeSeries(self): Plot the time series of the GPU metrics.
     - summary(self, verbosity: str = "medium"): Print a summary of the GPU metrics.
@@ -50,7 +47,7 @@ class GPUMetricsAnalyzer:
     - This is not a full-fledged data analysis tool and as such only the default profiling metrics are supported.
     - When possible, data manipulation should be done via SQL queries for performance and readability.
     """
-    def __init__(self, db_file: str, detect_outliers: str = "leading", detection_algorithm: str = "CPD", verbose: bool = False):
+    def __init__(self, db_file: str):
         """
         Description:
         Constructor method.
@@ -68,22 +65,41 @@ class GPUMetricsAnalyzer:
         """
         # Set up input variables
         self.db_file = db_file
-        self.verbose = verbose
-        self.detect_outliers = detect_outliers
-        self.detection_algorithm = detection_algorithm
 
         # Read data from database
         self.db = SQLIO(self.db_file, read_only=True)
 
         # Create necessary objects
-        # self.pp = MetricsPreProcessor(self.data)
-        # self.aggregator = GPUMetricsAggregator(self.metadata, self.data)
         self.grapher = Grapher()
 
-        # Call pre-processing functions
-        # if self.detectOutliers != "none":
-        #     self.pp.removeOutliers(self.detectOutliers,
-        #                            self.detectionAlgorithm)
+    def get_prefix(self, maxval: float):
+        """
+        Description:
+        This method determines the appropriate unit prefix.
+
+        Parameters:
+        - None
+
+        Returns:
+        - unit (str): The unit prefix.
+        - scale (float): The scaling factor.
+        """
+
+        # Determine the appropriate unit
+        if maxval > 1e9:
+            unit = "G"
+            scale = 1e9
+        elif maxval > 1e6:
+            unit = "M"
+            scale = 1e6
+        elif maxval > 1e3:
+            unit = "K"
+            scale = 1e3
+        else:
+            unit = ""
+            scale = 1
+
+        return unit, scale
 
     # def plotUsageMap(self):
     #     # For load balancing heatmap we aggregate over the time dimension.
@@ -110,27 +126,30 @@ class GPUMetricsAnalyzer:
 
         for _, job in metadata.iterrows():
             metrics = job["metrics"].split(",")
+            sampling_time = job["sampling_time"]
             
             # Aggregate data over all processes and all GPUs
+            # Use sample_id, time to group data by time and sample
+            # as we dont want to deal with floating point time values
             data = self.db.query(f"""
                                 SELECT
-                                    time,{','.join([f'AVG({m}) AS {m}' for m in metrics])}
+                                    sample_index,{','.join([f'AVG({m}) AS {m}' for m in metrics])}
                                 FROM
                                     data
                                 WHERE
                                     job_id={job['job_id']}
                                 GROUP BY
-                                    time
+                                    sample_index
                                 ORDER BY
-                                    time ASC
+                                    sample_index ASC
                                 """)
             
             # Get label for the job as job id + label
-            label = f"{job['job_id']}_{job['label']}"
+            label = job['label']
 
             # Remap GPU metrics that are in integer percentages to floats
             data["gpu_utilization"] = data["gpu_utilization"] / 100.
-            data["mem_copy_utilization"] = data["mem_copy_utilization"] / 100.
+            data["time"] = data["sample_index"] * sampling_time
 
             # Plot GPU activity
             self.grapher.plot_time_series(data[["time"] + gpu_activity_metrics],
@@ -148,23 +167,13 @@ class GPUMetricsAnalyzer:
 
             # Plot memory activity - this is a bit more complex as we need to 
             # adjust the unit of the data
-            
+
             # Get the maximum value in the dataframe
             maxval = data[memory_activity_metrics].max(numeric_only=True).max()
 
             # Determine the appropriate unit
-            if maxval > 1e9:
-                scale = 1e9
-                unit = "GB/s"
-            elif maxval > 1e6:
-                scale = 1e6
-                unit = "MB/s"
-            elif maxval > 1e3:
-                scale = 1e3
-                unit = "KB/s"
-            else:
-                scale = None
-                unit = "B/s"
+            unit, scale = self.get_prefix(maxval)
+            unit += "B/s" # Add the unit for memory activity
 
             # Get the memory activity data
             df_memory = data[["time"] + memory_activity_metrics].copy()
@@ -178,19 +187,72 @@ class GPUMetricsAnalyzer:
                                             f"{label} Memory Activity ({unit})"
                                         )
             
-    def summary(self, verbosity: str = "medium"):
+    def report(self):
         # Get metadata for each job
         metadata = self.db.get_table("job_metadata")
 
         print_title("Summary of Metrics:")
+
         for _, job in metadata.iterrows(): # Note: iterrows is slow, but we only expect very few rows
+            
+            ### Print global summary
+            print_title(f"Job ID: {job['job_id']} - {job['label']}", color="red")
+            
             # Get the raw data for the job
             data = self.db.query(f"SELECT {job['metrics']} FROM data WHERE job_id={job['job_id']}")
             
             # Aggregate data
-            data = format_df(data.agg(['median', 'mean', 'min', 'max'])).T # Transpose to get metrics as rows
+            agg = format_df(data.agg(['median', 'mean', 'min', 'max'])).T # Transpose to get metrics as rows
+            print_summary(job, agg)
 
-            print_summary(job, data)
+            ### Print average data transfered
+            print_title("Transfered data:", color="red")
+            
+            # Riemann integral to compute the total data transfered
+            PCIE_transferred_avg = ((data["pcie_tx_bytes"] + data["pcie_rx_bytes"]) * job["sampling_time"]).sum()
+            NVLink_transferred_avg = ((data["nvlink_tx_bytes"] + data["nvlink_rx_bytes"]) * job["sampling_time"]).sum()
+            PCIE_transferred_total = PCIE_transferred_avg * job["n_gpus"]
+            NVLink_transferred_total = NVLink_transferred_avg * job["n_gpus"]
+
+            # Set up small matrix for tabular output
+            transfer_data = []
+            unit, scale = self.get_prefix(PCIE_transferred_avg)
+            transfer_data.append([f"Average data transfered over PCIe (per GPU)", f"{PCIE_transferred_avg/scale:.2f} {unit}B"])
+            unit, scale = self.get_prefix(NVLink_transferred_avg)
+            transfer_data.append([f"Average data transfered over NVLink (per GPU)", f"{NVLink_transferred_avg/scale:.2f} {unit}B"])
+            unit, scale = self.get_prefix(PCIE_transferred_total)
+            transfer_data.append([f"Total PCIe data transfered", f"{PCIE_transferred_total/scale:.2f} {unit}B"])
+            unit, scale = self.get_prefix(NVLink_transferred_total)
+            transfer_data.append([f"Total NVLink data transfered", f"{NVLink_transferred_total/scale:.2f} {unit}B"])
+            
+            # Print the data transfered using tabulate for better formatting
+            print(tabulate(transfer_data, tablefmt='psql'))
+            print() # Add a newline for better readability
+
+            ### Print verbose per-gpu summary
+            print_title("GPU averages:", color="red")
+
+            # Query average performance metrics per each GPU
+            data = self.db.query(f"""
+                                SELECT
+                                    proc_id,gpu_id,
+                                    AVG(gpu_utilization) AS gpu_utilization,
+                                    AVG(sm_active) AS sm_active,
+                                    AVG(tensor_active + fp16_active + fp32_active + fp64_active) AS total_flop_activity
+                                FROM
+                                    data
+                                WHERE
+                                    job_id={job['job_id']}
+                                GROUP BY
+                                    proc_id, gpu_id
+                                ORDER BY
+                                    proc_id, gpu_id ASC
+                                """)
+            
+            # Format metrics correctly before printing
+            m = ["gpu_utilization", "sm_active", "total_flop_activity"]
+            data[m] = format_df(data[m])
+            print_df(data)
 
     # This function shows the metadata of the job and process
     def show_metadata(self):
@@ -199,7 +261,7 @@ class GPUMetricsAnalyzer:
         data = self.db.get_table("job_metadata")
         # Trim problematic columns
         data[['hostnames', 'metrics']] = trim_df(data[['hostnames', 'metrics']].copy())
-        print_df(data)
+        print_df(data.T, show_index=True)
 
         # Print Process Metadata
         print_title("Process Metadata:")

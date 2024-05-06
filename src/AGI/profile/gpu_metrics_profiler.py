@@ -175,15 +175,20 @@ class GPUMetricsProfiler:
             # Check if the process has completed
             if process.poll() is not None:
                 if process.returncode != 0:
-                    sys.exit(
-                        "The profiled command returned a non-zero exit code.")
+                    print("WARNING: Process exited with non-zero return code. Dumping data to file.")
                 break
 
         # Check if the loop exited due to timeout
         if process.poll() is None:
+            print("""WARNING: Killing process due to profiling timeout. Dumping data to file.
+                              This may result in some processes returning non-zero exit codes."""
+                  )
+            
+            sleep(1.0) # Sleep for 1 second to try and avoid
+            
             # Kill the process
             process.kill()
-            print("Process killed due to timeout.")
+            
 
         # Compute timestamps
         end_time = time.time()

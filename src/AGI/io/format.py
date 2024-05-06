@@ -27,10 +27,14 @@ def print_summary(job, data):
     [f"No. processes: {job['n_procs']}"],
     [f"No. GPUs: {job['n_gpus']}"],
     [f"Median elapsed time: {job['median_elapsed']:.2f}s"],
-    [f"Aggregate metric values:"]
     ]
 
+    # Print metadata using tabulate
     print(tabulate(metadata, tablefmt='psql', headers=['Job Metadata']))
+    print() # Add a newline for better readability
+    
+    # Print the metrics for the job
+    print_title("Global Summary of Metrics:", color="red")
     print_df(data, show_index=True)  # Show index to display metrics
 
 def print_metrics(data: pd.DataFrame) -> None:
@@ -111,7 +115,7 @@ def print_title(title: str, color: str = "green") -> None:
     """
     rprint(f"[bold][{color}]{title}[/]")
 
-def print_df(df: pd.DataFrame, show_index: bool = False) -> None:
+def print_df(df: pd.DataFrame, show_index: bool = False, maxcolwidths=20) -> None:
     """
     Description:
     This function prints a pandas DataFrame to the console.
@@ -126,7 +130,7 @@ def print_df(df: pd.DataFrame, show_index: bool = False) -> None:
     print(tabulate(df,
                    headers='keys',
                    tablefmt='psql',
-                   maxcolwidths=20,
+                   maxcolwidths=maxcolwidths,
                    showindex=show_index))
     print()
 
@@ -236,7 +240,10 @@ metric_names2formats = {
 "fp64_active": format_percent,
 "fp32_active": format_percent,
 "fp16_active": format_percent,
+"total_flop_activity": format_percent,
 "dram_active": format_percent,
 "pcie_tx_bytes": format_byte_rate,
-"pcie_rx_bytes": format_byte_rate
+"pcie_rx_bytes": format_byte_rate,
+"nvlink_tx_bytes": format_byte_rate,
+"nvlink_rx_bytes": format_byte_rate
 }

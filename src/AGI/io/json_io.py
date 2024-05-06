@@ -72,9 +72,7 @@ class JSONDataIO(BaseIO):
         """
         # Create directory if necessary
         dirname = os.path.dirname(self.file)
-        if not os.path.exists(dirname):
-            # Create directory
-            os.makedirs(dirname)
+        os.makedirs(dirname, exist_ok=True)
 
         # Combine metadata and data and write to file
         with open(self.file, 'w+') as f:
