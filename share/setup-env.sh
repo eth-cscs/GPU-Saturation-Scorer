@@ -12,7 +12,6 @@ fi
 # Add the directory containing agi to PATH
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     export PATH="$PATH:$BIN_PATH"
-    echo "Added $BIN_PATH to PATH."
 fi
 
 echo "Setup complete."

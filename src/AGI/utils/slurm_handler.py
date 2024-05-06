@@ -95,6 +95,8 @@ class SlurmJob:
         # If no label has been set explicitly, use the job ID
         if self.label is None:
             self.label = f"unlabeled_job_{self.job_id}"
+        else:
+            self.label = self.label.replace(" ", "_") # Replace spaces with underscores
 
         # Read GPU IDs - do not throw exception if not found
         error_msg = "SLURM_STEP_GPUS not found: try setting the --gpus-per-task flag. Using SLURM_PROCID mod 4 to determine GPU ID."

@@ -30,7 +30,7 @@ def print_summary(job, data):
     ]
 
     # Print metadata using tabulate
-    print(tabulate(metadata, tablefmt='psql', headers=['Job Metadata']))
+    print(tabulate(metadata, tablefmt='psql', headers=['Job Metadata'], maxcolwidths=80))
     print() # Add a newline for better readability
     
     # Print the metrics for the job
