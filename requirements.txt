@@ -1,0 +1,9 @@
+numpy
+pandas
+scikit-learn
+ruptures
+scipy
+matplotlib
+seaborn
+tabulate
+rich
