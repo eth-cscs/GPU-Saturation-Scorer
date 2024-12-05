@@ -20,10 +20,10 @@ all_metrics                 = gpu_activity_metrics + flop_activity_metrics + mem
 # List of field IDs to monitor
 metric_ids = [
     203,    # DCGM_FI_DEV_GPU_UTIL
-    # 250,    #Total framebuffer memory in MB
-    # 251,    #Total framebuffer used in MB
-    # 252,    #Total framebuffer free in MB
-    # 253,    #Total framebuffer reserved in MB
+    250,    #Total framebuffer memory in MB
+    251,    #Total framebuffer used in MB
+    252,    #Total framebuffer free in MB
+    253,    #Total framebuffer reserved in MB
     1002,   # DCGM_FI_PROF_SM_ACTIVE
     1003,   # DCGM_FI_PROF_SM_OCCUPANCY,
     1004,   # DCGM_FI_PROF_PIPE_TENSOR_CORE_ACTIVE

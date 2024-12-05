@@ -46,7 +46,7 @@ class ExportDataHandler:
     - This class uses the JSONDataIO and BinaryDataIO classes to handle input files.
     - This class uses the SQLIO class to handle database input/output.
     """
-    def __init__(self, db_file: str, input_files: list, input_format: str, force_overwrite: bool = False, timeout: int = 900):
+    def __init__(self, db_file: str, input_format: str, force_overwrite: bool = False, timeout: int = 900):
         """
         Description:
         Constructor method.
@@ -63,7 +63,6 @@ class ExportDataHandler:
         """
         # Set up input parameters
         self.db_file = db_file
-        self.input_files = input_files
         self.input_format = input_format
         self.force_overwrite = force_overwrite
         self.timeout = timeout
@@ -75,7 +74,7 @@ class ExportDataHandler:
         self.IO_class = JSONDataIO if self.input_format == "json" else BinaryDataIO
 
     # This function reads the input files and converts them to a common format
-    def read_files(self) -> list:
+    def read_files(self, input_files) -> list:
         """
         Description:
         This method reads the input files and converts them to a common dict format.
@@ -89,7 +88,7 @@ class ExportDataHandler:
         data = []
 
         # Process each input file
-        for file in self.input_files:
+        for file in input_files:
             # Initialize IO handler
             # Append tuples of metadata and data to data list
             data.append(self.IO_class(file).load())
@@ -119,21 +118,19 @@ class ExportDataHandler:
         # Assert that all inputs have the same columns
         assert all(d[0].keys() == raw_data[0][0].keys() for d in raw_data), "Error: not all input files have the same metrics!"
         
-        print("Exporting raw data...", end="")
         # Use Pandas to_sql method instead of executing SQL commands
         # This is more efficient and less error-prone
         for metadata, data in raw_data:
             for gpu_id, metrics in data.items():
                 df = pd.DataFrame(metrics)
                 df["job_id"] = metadata["job_id"]
+                df["step_id"] = metadata["step_id"]
                 df["proc_id"] = metadata["proc_id"]
                 df["gpu_id"] = gpu_id
                 df["sample_index"] = np.arange(len(df))
                 df["time"] = (df["sample_index"] * metadata["sampling_time"])/1000.0 # Convert from ms to s
 
             self.db.append_to_table("data", df)
-
-        print("OK.")
 
 
     def create_process_metadata_table(self, input_data: list) -> None:
@@ -160,13 +157,12 @@ class ExportDataHandler:
             - end_time: the end time of the process
             - elapsed: the total elapsed time of the process
         """
-        print("Exporting process metadata...", end="")
-
         # Use a list to store the rows of the table
         process_metadata = []
         for metadata, _ in input_data:
                 process_metadata.append({
                     "job_id": metadata["job_id"],
+                    "step_id": metadata["step_id"],
                     "proc_id": metadata["proc_id"],
                     "hostname": metadata["hostname"],
                     "n_gpus": metadata["n_gpus"],
@@ -180,9 +176,7 @@ class ExportDataHandler:
         df = pd.DataFrame(process_metadata)
 
         # Write the DataFrame to the database
-        self.db.create_table("process_metadata", df, if_exists="replace")
-
-        print("OK.")
+        self.db.append_to_table("process_metadata", df)
 
     def create_job_metadata_table(self, data: list):
         """
@@ -212,8 +206,7 @@ class ExportDataHandler:
             - median_elapsed: the average elapsed time of the processes
             - metrics: comma-separated list of the metrics that were collected
         """
-        print("Exporting job metadata...", end="")
-        
+    
         # Compute start and end times
         median_start_time = datetime.fromtimestamp(np.median([d[0]["start_time"] for d in data])).strftime("%Y-%m-%d %H:%M:%S")
         median_end_time = datetime.fromtimestamp(np.median([d[0]["end_time"] for d in data])).strftime("%Y-%m-%d %H:%M:%S")
@@ -255,6 +248,7 @@ class ExportDataHandler:
 
         job_metadata = [{
             "job_id": root_metadata["job_id"],                                   # Assume all input files have the same job ID
+            "step_id": root_metadata["step_id"],                                 # Assume all input files have the same step ID
             "label": root_metadata["label"],                                     # Assume all input files have the same label
             "n_hosts": len(set(d[0]["hostname"] for d in data)),                 # Count unique hostnames
             "hostnames": ",".join(list(set(d[0]["hostname"] for d in data))),    # Concatenate unique hostnames
@@ -272,13 +266,10 @@ class ExportDataHandler:
         df = pd.DataFrame(job_metadata)
 
         # Write the DataFrame to the database
-        self.db.create_table("job_metadata", df, if_exists="replace")
-
-        print("OK.")
+        self.db.append_to_table("job_metadata", df)
 
 
-
-    def export_db(self):
+    def export(self, input_files) -> None:
         """
         Description:
         This method exports the input data to the database. 
@@ -297,7 +288,7 @@ class ExportDataHandler:
         - Once this method terminates, the database file will contain the data from the input files.
         """
         # Process each input file 
-        data = self.read_files()
+        data = self.read_files(input_files)
 
         # Assert that all input files have the same SLURM job ID
         assert all(d[0]["job_id"] == data[0][0]["job_id"] for d in data), "Error: not all input files have been generated by the same SLURM job!"

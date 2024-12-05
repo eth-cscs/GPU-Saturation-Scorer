@@ -19,13 +19,20 @@
 # External imports
 import numpy as np
 import pandas as pd
+import fpdf as PDF
+import uuid
+import os
+import matplotlib.pyplot as plt
+import shutil
+from tqdm import tqdm
 
 
 # AGI imports
 from AGI.io.sql_io import SQLIO
 from AGI.io.format import *
-from AGI.analysis.grapher import Grapher
+#from AGI.analysis.grapher import Grapher
 from AGI.profile.metrics import gpu_activity_metrics, flop_activity_metrics, memory_activity_metrics
+from AGI.analysis.report import PDFReport
 
 class GPUMetricsAnalyzer:
     """
@@ -47,13 +54,13 @@ class GPUMetricsAnalyzer:
     - This is not a full-fledged data analysis tool and as such only the default profiling metrics are supported.
     - When possible, data manipulation should be done via SQL queries for performance and readability.
     """
-    def __init__(self, db_file: str):
+    def __init__(self, db_file):
         """
         Description:
         Constructor method.
 
         Parameters:
-        - db_file (str): Path to the SQLite database file.
+        - db_file (str or SQLIO): Path to the SQLite database file.
         - detect_outliers (str): Flag to enable outlier detection.
         - detection_algorithm (str): Algorithm to use for outlier detection.
 
@@ -66,11 +73,18 @@ class GPUMetricsAnalyzer:
         # Set up input variables
         self.db_file = db_file
 
-        # Read data from database
-        self.db = SQLIO(self.db_file, read_only=True)
+        if isinstance(db_file, str):
+            # Read data from file
+            self.db = SQLIO(self.db_file, read_only=True)
+        elif isinstance(db_file, SQLIO):
+            # Read data directly from database
+            self.db = db_file
+        else:
+            raise ValueError("Invalid input type for db_file. \
+                              Must be either a string or SQLIO object.")
 
         # Create necessary objects
-        self.grapher = Grapher()
+        #self.grapher = Grapher()
 
     def get_prefix(self, maxval: float):
         """
@@ -101,93 +115,32 @@ class GPUMetricsAnalyzer:
 
         return unit, scale
 
-    # def plotUsageMap(self):
-    #     # For load balancing heatmap we aggregate over the time dimension.
-    #     # This will yield a single average value for each metric for each GPU.
-    #     data = self.aggregator.aggregateTime()
-    #     self.plotter.plotUsageMaps(data)
 
-    def plot_time_series(self):
-        """
-        Description:
-        This method plots time series of the GPU metrics.
+    def clean_tmp(self, remove_dir=False):
+        """ Convenience function to clean up the temporary directory """
+        if os.path.exists(self.tmp_dir):
+            shutil.rmtree(self.tmp_dir)
 
-        Parameters:
-        - None
+    # Generate PDF report
+    def report(self):
+        print_title("Generating reports for all jobs.")
+        # Create temporary directory for storing images
+        self.tmp_dir = f"/tmp/{uuid.uuid4()}"
+        os.makedirs(self.tmp_dir, exist_ok=True)
 
-        Returns:
-        - None
-
-        Notes:
-        - Only the default profiling metrics are supported.
-        """
-        # Aggregate data over all processes and all GPUs
+        # Read job metadata
         metadata = self.db.get_table("job_metadata")
 
+        # Write the report for each job
         for _, job in metadata.iterrows():
-            metrics = job["metrics"].split(",")
-            sampling_time = job["sampling_time"]
-            
-            # Aggregate data over all processes and all GPUs
-            # Use sample_id, time to group data by time and sample
-            # as we dont want to deal with floating point time values
-            data = self.db.query(f"""
-                                SELECT
-                                    sample_index,{','.join([f'AVG({m}) AS {m}' for m in metrics])}
-                                FROM
-                                    data
-                                WHERE
-                                    job_id={job['job_id']}
-                                GROUP BY
-                                    sample_index
-                                ORDER BY
-                                    sample_index ASC
-                                """)
-            
-            # Get label for the job as job id + label
-            label = job['label']
+            print_title(job['label'], color="red")
+            output_path = f"{job['label']}_report.pdf"
+            report = PDFReport(self.db, job, output_path, self.tmp_dir)
+            report.write()
 
-            # Remap GPU metrics that are in integer percentages to floats
-            data["gpu_utilization"] = data["gpu_utilization"] / 100.
-            data["time"] = data["sample_index"] * sampling_time
+        self.clean_tmp()
 
-            # Plot GPU activity
-            self.grapher.plot_time_series(data[["time"] + gpu_activity_metrics],
-                                            f"{label}_gpu_activity.pdf",
-                                            f"{label} GPU Activity",
-                                            ymax=1.1
-                                            )
-
-            # Plot flop activity
-            self.grapher.plot_time_series(data[["time"] + flop_activity_metrics],
-                                            f"{label}_flop_activity.pdf",
-                                            f"{label} Floating Point Activity",
-                                            ymax=1.1
-                                            )
-
-            # Plot memory activity - this is a bit more complex as we need to 
-            # adjust the unit of the data
-
-            # Get the maximum value in the dataframe
-            maxval = data[memory_activity_metrics].max(numeric_only=True).max()
-
-            # Determine the appropriate unit
-            unit, scale = self.get_prefix(maxval)
-            unit += "B/s" # Add the unit for memory activity
-
-            # Get the memory activity data
-            df_memory = data[["time"] + memory_activity_metrics].copy()
-            
-            # Scake data uf needed
-            if scale:
-                df_memory[memory_activity_metrics] = df_memory[memory_activity_metrics] / scale
-
-            self.grapher.plot_time_series(df_memory,
-                                            f"{label}_memory_activity.pdf",
-                                            f"{label} Memory Activity ({unit})"
-                                        )
-            
-    def report(self):
+    def summary(self):
         # Get metadata for each job
         metadata = self.db.get_table("job_metadata")
 
@@ -196,10 +149,10 @@ class GPUMetricsAnalyzer:
         for _, job in metadata.iterrows(): # Note: iterrows is slow, but we only expect very few rows
             
             ### Print global summary
-            print_title(f"Job ID: {job['job_id']} - {job['label']}", color="red")
+            print_title(f"Job ID: {job['job_id']} - {job['label']}", color="green")
             
             # Get the raw data for the job
-            data = self.db.query(f"SELECT {job['metrics']} FROM data WHERE job_id={job['job_id']}")
+            data = self.db.query(f"SELECT {job['metrics']} FROM data WHERE job_id={job['job_id']} AND step_id={job['step_id']}")
             
             # Aggregate data
             agg = format_df(data.agg(['median', 'mean', 'min', 'max'])).T # Transpose to get metrics as rows
@@ -208,27 +161,6 @@ class GPUMetricsAnalyzer:
             ### Print average data transfered
             print_title("Transfered data:", color="red")
             
-            # Riemann integral to compute the total data transfered
-            PCIE_transferred_avg = ((data["pcie_tx_bytes"] + data["pcie_rx_bytes"]) * job["sampling_time"]).sum()
-            NVLink_transferred_avg = ((data["nvlink_tx_bytes"] + data["nvlink_rx_bytes"]) * job["sampling_time"]).sum()
-            PCIE_transferred_total = PCIE_transferred_avg * job["n_gpus"]
-            NVLink_transferred_total = NVLink_transferred_avg * job["n_gpus"]
-
-            # Set up small matrix for tabular output
-            transfer_data = []
-            unit, scale = self.get_prefix(PCIE_transferred_avg)
-            transfer_data.append([f"Average data transfered over PCIe (per GPU)", f"{PCIE_transferred_avg/scale:.2f} {unit}B"])
-            unit, scale = self.get_prefix(NVLink_transferred_avg)
-            transfer_data.append([f"Average data transfered over NVLink (per GPU)", f"{NVLink_transferred_avg/scale:.2f} {unit}B"])
-            unit, scale = self.get_prefix(PCIE_transferred_total)
-            transfer_data.append([f"Total PCIe data transfered", f"{PCIE_transferred_total/scale:.2f} {unit}B"])
-            unit, scale = self.get_prefix(NVLink_transferred_total)
-            transfer_data.append([f"Total NVLink data transfered", f"{NVLink_transferred_total/scale:.2f} {unit}B"])
-            
-            # Print the data transfered using tabulate for better formatting
-            print(tabulate(transfer_data, tablefmt='psql'))
-            print() # Add a newline for better readability
-
             ### Print verbose per-gpu summary
             print_title("GPU averages:", color="red")
 
@@ -242,7 +174,7 @@ class GPUMetricsAnalyzer:
                                 FROM
                                     data
                                 WHERE
-                                    job_id={job['job_id']}
+                                    job_id={job['job_id']} AND step_id={job['step_id']}
                                 GROUP BY
                                     proc_id, gpu_id
                                 ORDER BY

@@ -122,13 +122,13 @@ class AGI:
             sampling_time=self.args.sampling_time,
             max_runtime=self.args.max_runtime,
             force_overwrite=self.args.force_overwrite,
-            output_format=self.args.format
+            output_format="json"
         )
 
         # Run workload
         profiler.run(self.args.wrap)
 
-    def export(self) -> None:
+    def export(self, in_path, output) -> None:
         """
         Description:
         Driver function for the export module.
@@ -137,7 +137,7 @@ class AGI:
         - None
 
         Returns:
-        - None
+        - SQLDB object
 
         Notes:
         - This function attempts to import the necessary modules. 
@@ -146,40 +146,60 @@ class AGI:
         """
         
         # Check if all requirements are installed
-        check_import_requirements()
 
         # Import AGI modules
         from AGI.export.export import ExportDataHandler
 
-        # Check if input files are provided
-        input_files = None
-
-        # Check if input files are provided
-        if self.args.input_files:
-            input_files = self.args.input_files
-        elif self.args.input_folder:
-            # Look for all files in the input folder with the specified extension
-            ext = "json" if self.args.format == "json" else "bin"
-            print(f"Looking for files in {self.args.input_folder} with extension {ext}")
-            input_files = [os.path.join(self.args.input_folder, f) for f in os.listdir(self.args.input_folder) if f.endswith(ext)]
-        else:
-            sys.exit("No input files provided.")
+        # Check that input path is a folder
+        if not os.path.isdir(in_path):
+            sys.exit("Error: input path is not a folder.")
         
-        # Check if input files are found
-        if len(input_files) == 0:
-            sys.exit("No input files found.")
+        # Read all subdirectories in the input folder
+        input_dirs = os.listdir(in_path)
 
-        # Create ExportDataHandler object
+        # Check no subdirectories are present
+        if len(input_dirs) == 0:
+            sys.exit("Error: Input folder is empty.")
+
         handler = ExportDataHandler(
-            db_file=self.args.output if self.args.output else "output.sqlite",
-            input_files=input_files,
-            input_format=self.args.format,
-            force_overwrite=self.args.force_overwrite
-        )
+                db_file=output,
+                input_format="json",
+                force_overwrite=self.args.force_overwrite
+            )
+        
+        written_data = False # Flag to check if any data was written to the database
+        for d in input_dirs:
+            # Check that the subdirectory is a folder
+            if not os.path.isdir(os.path.join(in_path, d)):
+                print(f"Warning: {d} is not a folder. Skipping.")
+                continue
+            
+            # Path to the subdirectory corresponding to the SLURM step
+            step_path = os.path.join(in_path, d)
+            files = os.listdir(step_path)
+            
+            # Read only files with the specified extension
+            files = [os.path.join(step_path, f) for f in files if f.endswith(".json")]
 
-        # Export data to database
-        handler.export_db()
+            # Check that there are files to read
+            if len(files) == 0:
+                print(f"Warning: No JSON files found in {d}. Skipping.")
+                continue
 
+            # Export data to database
+            handler.export(
+                input_files=files
+            )
+
+            written_data = True
+
+        if not written_data:
+            if self.args.output != ":memory:":
+                os.remove(self.args.output)
+            sys.exit("Error: No data was written to the database. Removing temporary files and exiting.")
+            
+        return handler.db
+            
     # Driver function for the analyze module
     def analyze(self) -> None:
         """
@@ -204,23 +224,26 @@ class AGI:
 
         from AGI.analysis.analysis import GPUMetricsAnalyzer
 
+        # Check if input_file is a directory
+        if os.path.isdir(self.args.input):    
+            # Export data to database in memory
+            db = self.export(
+                in_path=self.args.input,
+                output=self.args.export # Default is ":memory:" or the specified output file
+            )
+        else:
+            db = self.args.input
+        
         # Instantiate analyzer class
         analyzer = GPUMetricsAnalyzer(
-            db_file=self.args.input_file
+            db_file=db
         )
 
-        # Print GPU information
-        if self.args.show_metadata:
-            analyzer.show_metadata()
-
         # Print summary of metrics
-        if not self.args.no_report:
+        if not self.args.silent:
+            analyzer.summary()
+
+        # Generate PDF report
+        if self.args.report:
             analyzer.report()
 
-        # Plot time-series of metrics
-        if self.args.plot_time_series:
-            analyzer.plot_time_series()
-
-        # Plot load-balancing of metrics
-        if self.args.plot_load_balancing:
-            analyzer.plot_usage_map()

@@ -21,6 +21,7 @@ def print_summary(job, data):
     # This is done via tabulate to format the output
     metadata = [
     [f"Job ID: {job['job_id']}"],
+    [f"Step ID: {job['step_id']}"],
     [f"Label: {job['label']}"],
     [f"Command: \"{job['cmd']}\""],
     [f"No. hosts: {job['n_hosts']}"],
@@ -185,16 +186,36 @@ def format_byte_rate(value: float) -> str:
     Returns:
     - The formatted value as a byte rate in string format.
     """
-    if value < 1024:
+    if value < 1e3:
         return f"{value} B/s"
-    elif value < 1024 ** 2:
-        return f"{value / 1024:.2f} KB/s"
-    elif value < 1024 ** 3:
-        return f"{value / 1024 ** 2:.2f} MB/s"
+    elif value < 1e6:
+        return f"{value / 1e3:.2f} KB/s"
+    elif value < 1e9:
+        return f"{value / 1e6:.2f} MB/s"
     else:
-        return f"{value / 1024 ** 3:.2f} GB/s"
+        return f"{value / 1e9:.2f} GB/s"
+    
+def format_byte(value: float) -> str:
+    """
+    Description:
+    This function formats a value as a byte.
 
-def format_generic(value: float) -> str:
+    Parameters:
+    - value: The value to format.
+
+    Returns:
+    - The formatted value as a byte in string format.
+    """
+    if value < 1e3:
+        return f"{value} B"
+    elif value < 1e6:
+        return f"{value / 1e3:.2f} KB"
+    elif value < 1e9:
+        return f"{value / 1e6:.2f} MB"
+    else:
+        return f"{value / 1e9:.2f} GB"
+
+def format_generic(value) -> str:
     """
     Description:
     This function formats a generic value using generic K, M, G suffixes.
@@ -204,15 +225,23 @@ def format_generic(value: float) -> str:
 
     Returns:
     - The formatted value in string format.
-    """
-    if value < 1e3:
-        return f"{value:.2f}"
-    elif value < 1e6:
-        return f"{value / 1e3:.2f} K"
-    elif value < 1e9:
-        return f"{value / 1e6:.2f} M"
-    else:
-        return f"{value / 1e9:.2f} G"
+    """ 
+    # Check if value is float
+    if pd.api.types.is_float(value):
+        if value < 1e3:
+            return f"{value:.2f}"
+        elif value < 1e6:
+            return f"{value / 1e3:.2f} K"
+        elif value < 1e9:
+            return f"{value / 1e6:.2f} M"
+        else:
+            return f"{value / 1e9:.2f} G"
+    
+    # Else, leave value as is
+    return value
+
+def format_fb(value) -> str:
+    return format_byte(value * 1e6) # Convert from MB to B
 
 # Format utilization metric which is in the range [0, 100]
 def format_utilization(value):
@@ -234,6 +263,10 @@ def format_utilization(value):
 
 metric_names2formats = {
 "gpu_utilization": format_utilization,
+"fb_free": format_fb,
+"fb_used": format_fb,
+"fb_total": format_fb,
+"fb_resv": format_fb,
 "sm_active": format_percent,
 "sm_occupancy": format_percent,
 "tensor_active": format_percent,

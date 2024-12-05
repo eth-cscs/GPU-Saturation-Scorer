@@ -30,25 +30,16 @@ if __name__ == '__main__':
     parser_profile.add_argument('--force-overwrite', '-f', action='store_true', help='Force overwrite of output file', default=False)
     parser_profile.add_argument('--append', '-a', action='store_true', help='Append profiling data to the output file', default=False)
     parser_profile.add_argument('--output-folder', '-o', metavar='output-folder', type=str, default=None, help='Output folder for the profiling data', required=True)
-    parser_profile.add_argument('--format', '-fmt', metavar='output-format', type=str, choices=['json', 'binary'], default='binary', help='Output format for the profiling data')
-    
-    parser_export = subparsers.add_parser('export', help='Export command help')
-    group = parser_export.add_mutually_exclusive_group(required=True)
-    group.add_argument('--input-files', '-i', type=str, nargs='+', help='Input files for export')
-    group.add_argument('--input-folder', '-if', type=str, help='Input folder for export')
-    parser_export.add_argument('--format', '-fmt', type=str, choices=['json', 'binary'], default='binary', help='Input format of the profiling data')
-    parser_export.add_argument('--output', '-o', type=str, required=False, help='Output file for export')
-    parser_export.add_argument('--force-overwrite', '-f', action='store_true', help='Force overwrite of output file', default=False)
 
     # Analyze subcommand
     parser_analyze = subparsers.add_parser('analyze', help='Analyze command help')
-    parser_analyze.add_argument('--input-file', '-i', type=str, required=True, help='Input file for analysis')
-    parser_analyze.add_argument('--no-report', '-nrp', action="store_true", default=False, help='Hide report of metrics')
-    parser_analyze.add_argument('--show-metadata', '-mtd', action='store_true', default=False, help='Generate metadata for the input SQL file')
-    parser_analyze.add_argument('--plot-time-series', '-pts', action='store_true', help='Generate time-series plots of metrics')
-    parser_analyze.add_argument('--plot-load-balancing', '-plb', action='store_true', help='Generate load-balancing plots of metrics')
-    parser_analyze.add_argument('--plot-histogram', '-phist', action='store_true', help='Plot histograms of metrics')
-
+    parser_analyze.add_argument('--input', '-i', type=str, required=True, help='Input folder or SQL file for analysis')
+    parser_analyze.add_argument('--silent', '-s', action="store_true", default=False, help='Silent mode')
+    parser_analyze.add_argument('--report', '-rp', action="store_true", default=False, help='Generate full PDF report')
+    parser_analyze.add_argument('--export', '-e', metavar='export', type=str, default=":memory:", help='SQLite database file to export the raw data (default: in-memory database)')
+    parser_analyze.add_argument('--output', '-o', type=str, required=False, help='Output file for analysis')
+    parser_analyze.add_argument('--force-overwrite', '-f', action='store_true', help='Force overwrite of output file', default=False)
+    
     # Parse arguments
     args = parser.parse_args()
 

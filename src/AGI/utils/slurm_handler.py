@@ -90,6 +90,7 @@ class SlurmJob:
 
         # Read job ID and process ID - throw exception if not found
         self.job_id = int(self.read_env_var("SLURM_JOB_ID", throw=True))
+        self.step_id = int(self.read_env_var("SLURM_STEP_ID", throw=True))
         self.proc_id = int(self.read_env_var("SLURM_PROCID", throw=True))
 
         # If no label has been set explicitly, use the job ID
@@ -97,6 +98,9 @@ class SlurmJob:
             self.label = f"unlabeled_job_{self.job_id}"
         else:
             self.label = self.label.replace(" ", "_") # Replace spaces with underscores
+
+        # Append job ID and step ID to the label
+        self.label = f"{self.label}_job_{self.job_id}_step_{self.step_id}"
 
         # Read GPU IDs - do not throw exception if not found
         error_msg = "SLURM_STEP_GPUS not found: try setting the --gpus-per-task flag. Using SLURM_PROCID mod 4 to determine GPU ID."
@@ -114,7 +118,10 @@ class SlurmJob:
 
         # Set output folder and file
         if not self.output_folder:
-            self.output_folder = f"AGI_JOB_{self.job_id}"
+            self.output_folder = f"JOB_{self.job_id}"
+
+        # Set output directory for specific job
+        self.output_folder = os.path.join(self.output_folder, self.label)
 
         # Set output file
         self.output_file = f"{self.label}_proc_{self.proc_id}"

@@ -103,15 +103,15 @@ class GPUMetricsProfiler:
         self.file_path = os.path.join(
             self.job.output_folder, self.job.output_file)
 
-        # Initialize IO handler
-        if output_format == "json":
+        # Initialize IO handler (JSON only for now)
+        # if output_format == "json":
             # Add .json extension
-            self.file_path += ".json"
-            self.io = JSONDataIO(self.file_path, force_overwrite=force_overwrite)
-        else: # Binary format
-            # Add .bin extension
-            self.file_path += ".bin"
-            self.io = BinaryDataIO(self.file_path, force_overwrite=force_overwrite)
+        self.file_path += ".json"
+        self.io = JSONDataIO(self.file_path, force_overwrite=force_overwrite)
+        # else: # Binary format
+        #     # Add .bin extension
+        #     self.file_path += ".bin"
+        #     self.io = BinaryDataIO(self.file_path, force_overwrite=force_overwrite)
 
         self.io.check_overwrite()  # Check if file exists and fail if necessary
 
@@ -180,11 +180,9 @@ class GPUMetricsProfiler:
 
         # Check if the loop exited due to timeout
         if process.poll() is None:
+            sleep(3.0) # Sleep for 3 seconds to try and avoid killing it before it has a chance to exit cleanly.
             print("""WARNING: Killing process due to profiling timeout. Dumping data to file.
-                              This may result in some processes returning non-zero exit codes."""
-                  )
-            
-            sleep(1.0) # Sleep for 1 second to try and avoid
+                              This may result in some processes returning non-zero exit codes.""")
             
             # Kill the process
             process.kill()
@@ -200,6 +198,7 @@ class GPUMetricsProfiler:
         # Assemble the metadata
         self.metadata = {
             "job_id": self.job.job_id,
+            "step_id": self.job.step_id,
             "label": self.job.label,
             "hostname": self.job.hostname,
             "proc_id": self.job.proc_id,
