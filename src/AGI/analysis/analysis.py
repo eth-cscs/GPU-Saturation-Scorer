@@ -133,10 +133,11 @@ class GPUMetricsAnalyzer:
 
         # Write the report for each job
         for _, job in metadata.iterrows():
-            print_title(job['label'], color="red")
+            print_title(job['label'], color="red")    
             output_path = f"{job['label']}_report.pdf"
             report = PDFReport(self.db, job, output_path, self.tmp_dir)
             report.write()
+            print_title("[INFO] Generated report: " + f"{job['label']}_report.pdf", color="blue" )
 
         self.clean_tmp()
 
