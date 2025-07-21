@@ -1,0 +1,17 @@
+[project]
+name = 'alps_gpu_insight'
+requires-python = ">=3.9"
+version = "0.0.0"
+dependencies = [
+    "pandas",
+    "matplotlib",
+    "seaborn",
+    "scipy",
+    "numpy",
+    "tabulate",
+    "rich",
+    "fpdf2",
+]
+
+[project.scripts]
+agi = "AGI.AGI:main"
