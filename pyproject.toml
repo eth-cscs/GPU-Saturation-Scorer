@@ -12,6 +12,3 @@ dependencies = [
     "rich",
     "fpdf2",
 ]
-
-[project.scripts]
-agi = "AGI.AGI:main"
