@@ -2,6 +2,7 @@
 import os
 import sys
 
+
 if __name__ == '__main__':
     # Find AGI's location and its prefix
     agi_bin = os.path.realpath(os.path.expanduser(__file__))
@@ -10,7 +11,11 @@ if __name__ == '__main__':
     # Allow AGI libs to be imported in legacy scripts
     agi_lib_path = os.path.join(agi_prefix, "src")
     sys.path.insert(0, agi_lib_path)
+
+    print(agi_bin)
+    print(agi_prefix)
+    print(agi_lib_path)
     
     # Import AGI
-    from AGI.AGI import main
-    main()
+    from AGI.AGI import *
+    AGI.main()
