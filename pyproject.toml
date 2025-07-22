@@ -12,6 +12,8 @@ dependencies = [
     "rich",
     "fpdf2",
 ]
+packages = [ { include = "src" }, ]
 
 [project.scripts]
 agi = "AGI.AGI:main"
+
