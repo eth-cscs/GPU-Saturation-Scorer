@@ -10,6 +10,7 @@
 #
 # Authors:
 # Marcel Ferrari (CSCS)
+# Cerlane Leong (CSCS)
 #
 ###############################################################
 
@@ -34,7 +35,7 @@ import logging
 logging.getLogger("fpdf").setLevel(logging.CRITICAL)
 
 DIR = Path(__file__).parent
-FONT_DIR = DIR / ".." / ".." / ".." / "fonts"
+FONT_DIR = DIR / ".."  / "fonts"
 
 class PDFReport:
     def __init__(self, db, job, outfile, tmp_dir):
@@ -210,7 +211,7 @@ class PDFReport:
         self.pdf.set_text_color(50, 50, 50)
         self.pdf.write(text=warnmsg)
         self.pdf.ln()
-        
+
     def plot_time_series(self, x, y_avg, min_y, max_y, metric):
         # Downsample data to a maximum of 1000 points
         x, y_avg, min_y, max_y = self.downsample((x, y_avg, min_y, max_y))
