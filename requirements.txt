@@ -1,7 +1,9 @@
 numpy
 pandas
-scikit-learn
-ruptures
 scipy
 matplotlib
 seaborn
+tabulate
+rich
+fpdf2
+tqdm
