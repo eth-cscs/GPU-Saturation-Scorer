@@ -1,9 +1,30 @@
-#!/usr/bin/env python3
+###############################################################
+# Project: Alps GPU Insight
+#
+# File Name: report.py
+#
+# Description:
+# This file contains the report class that is used to generate
+# the PDF report of the analysis. This class includes
+# all necessary plotting and formatting functions for the report.
+#
+# Authors:
+# Marcel Ferrari (CSCS)
+# Cerlane Leong (CSCS)
+#
+###############################################################
+
 import os
 import sys
 import argparse
 
-if __name__ == '__main__':
+def main():
+    """
+    Main function to run the AGI tool.
+    It sets up the command line argument parser, imports necessary modules,
+    and runs the appropriate subcommand based on the parsed arguments.
+    """
+
     # Find AGI's location and its prefix
     agi_bin = os.path.realpath(os.path.expanduser(__file__))
     agi_prefix = os.path.dirname(os.path.dirname(agi_bin))
@@ -39,7 +60,7 @@ if __name__ == '__main__':
     parser_analyze.add_argument('--export', '-e', metavar='export', type=str, default=":memory:", help='SQLite database file to export the raw data (default: in-memory database)')
     parser_analyze.add_argument('--output', '-o', type=str, required=False, help='Output file for analysis')
     parser_analyze.add_argument('--force-overwrite', '-f', action='store_true', help='Force overwrite of output file', default=False)
-    
+
     # Parse arguments
     args = parser.parse_args()
 
@@ -51,3 +72,6 @@ if __name__ == '__main__':
     else:
         # Print help if no valid subcommand is given
         parser.print_help()
+
+if __name__ == "__main__":
+    main()

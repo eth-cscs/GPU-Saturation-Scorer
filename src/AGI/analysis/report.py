@@ -10,6 +10,7 @@
 #
 # Authors:
 # Marcel Ferrari (CSCS)
+# Cerlane Leong (CSCS)
 #
 ###############################################################
 
@@ -22,13 +23,19 @@ import datetime
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from scipy.interpolate import griddata
+from scipy.spatial.qhull import QhullError
 from AGI.io.format import *
+
+from pathlib import Path
 
 # Disable stupid fpdf2 warnings
 import warnings
 warnings.filterwarnings("ignore")
 import logging
 logging.getLogger("fpdf").setLevel(logging.CRITICAL)
+
+DIR = Path(__file__).parent
+FONT_DIR = DIR / ".."  / "fonts"
 
 class PDFReport:
     def __init__(self, db, job, outfile, tmp_dir):
@@ -37,6 +44,7 @@ class PDFReport:
         self.outfile = outfile
         self.tmp_dir = tmp_dir
         self.GRAY = 220
+       
 
     def downsample(self, arrays, nmax = 100):
         # Downsample data to a maximum of nmax points by 
@@ -51,16 +59,21 @@ class PDFReport:
         return tuple(rax)
 
     def body(self):
-        self.pdf.set_font("Helvetica", "", 12)
+        #self.pdf.set_font("Helvetica", "", 12)
+        self.pdf.set_font("DejaVuSans", "", size=10)
 
     def title(self):
-        self.pdf.set_font("Helvetica", "B", 18)
+        #self.pdf.set_font("Helvetica", "B", 18)
+        self.pdf.set_font("DejaVuSans", "B", size=16)
+
 
     def subtitle(self):
-        self.pdf.set_font("Helvetica", "I", 14)
+        #self.pdf.set_font("Helvetica", "I", 14)
+        self.pdf.set_font("DejaVuSans", "I", 12)
     
     def bold_title(self):
-        self.pdf.set_font("Helvetica", "B", 16)
+        #self.pdf.set_font("Helvetica", "B", 16)
+        self.pdf.set_font("DejaVuSans", "B", 14)
 
     def newpage(self):
         self.pdf.add_page()
@@ -190,6 +203,15 @@ class PDFReport:
             if i + step < len(metrics):
                 self.newpage()
      
+    def draw_warnings(self, warnmsg):
+        self.pdf.set_font("DejaVuSans", style="", size=10)
+        self.pdf.ln()
+        self.pdf.set_text_color(220, 50, 50)
+        self.pdf.write(text="[WARNING] ")
+        self.pdf.set_text_color(50, 50, 50)
+        self.pdf.write(text=warnmsg)
+        self.pdf.ln()
+
     def plot_time_series(self, x, y_avg, min_y, max_y, metric):
         # Downsample data to a maximum of 1000 points
         x, y_avg, min_y, max_y = self.downsample((x, y_avg, min_y, max_y))
@@ -376,7 +398,7 @@ class PDFReport:
         plt.close(fig)
 
         return figpath
-
+    
     def draw_heatmaps(self):
         # Add title
         self.bold_title()
@@ -432,24 +454,39 @@ class PDFReport:
 
         print("Generating heatmaps...")
         for metric in tqdm(metrics):
+
             # Extract the metric values for the current metric
             y = data[metric].to_numpy()
-
+       
             if np.abs(y).max() > 1e-3:
-                # Interpolate (x, t, y) to (X, T, Y)
-                Y = griddata((x, t), y, (X, T), method='linear')
+                try: 
+                    # Interpolate (x, t, y) to (X, T, Y)
+                    Y = griddata((x, t), y, (X, T), method='linear')
 
-                # Plot heatmap for the current metric
-                figpath = self.plot_heatmap(X, T, Y, metric)
+                    # Plot heatmap for the current metric
+                    figpath = self.plot_heatmap(X, T, Y, metric)
 
-                self.pdf.image(figpath, x=self.pdf.l_margin, h=(self.pdf.h - self.pdf.b_margin - self.pdf.t_margin)/2.2)
-                self.pdf.ln(5)
+                    self.pdf.image(figpath, x=self.pdf.l_margin, h=(self.pdf.h - self.pdf.b_margin - self.pdf.t_margin)/2.2)
+                    self.pdf.ln(5)
+                except QhullError:
+                      emsg = "Data is 2 dimension. Heatmap ("+metric+") cannot be generated. This is likely because only one gpu is used."
+                      self.draw_warnings(emsg)
+                      print("[WARN] " + emsg)
+            else:
+                 emsg = "Metric is too small for heatmap ("+metric+") to be plotted."
+                 self.draw_warnings(emsg)
+                 print("[WARN] " + emsg)
 
     def write(self):        
         # Create new PDF file
         self.pdf = PDF.FPDF(orientation='L')
+        self.pdf.add_font(fname=FONT_DIR / "DejaVuSans.ttf")
+        self.pdf.add_font("DejaVuSans", style="B", fname=FONT_DIR / "DejaVuSans-Bold.ttf")
+        self.pdf.add_font("DejaVuSans", style="I", fname=FONT_DIR / "DejaVuSans-Oblique.ttf")
         self.pdf.set_auto_page_break(auto=True, margin=15)
         self.pdf.add_page()
+
+
         
         # Draw the title and metadata
         self.draw_title()

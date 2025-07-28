@@ -1,0 +1,34 @@
+[build-system]
+requires = [
+    "wheel",
+    "setuptools-scm[toml]>=8.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = 'alps_gpu_insight'
+requires-python = ">=3.9"
+version = "0.1.1"
+dependencies = [
+    "pandas",
+    "matplotlib",
+    "seaborn",
+    "scipy",
+    "numpy",
+    "tabulate",
+    "rich",
+    "fpdf2",
+    "tqdm",
+]
+
+[tool.setuptools]
+include-package-data = true #default true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+fonts = ["*.ttf"]
+
+[project.scripts]
+agi = "AGI.__main__:main"
