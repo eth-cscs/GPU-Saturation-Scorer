@@ -1,5 +1,5 @@
 ###############################################################
-# Project: Alps GPU Insight
+# Project: GPU saturation scorer
 #
 # File Name: report.py
 #
@@ -20,24 +20,24 @@ import argparse
 
 def main():
     """
-    Main function to run the AGI tool.
+    Main function to run the GSS tool.
     It sets up the command line argument parser, imports necessary modules,
     and runs the appropriate subcommand based on the parsed arguments.
     """
 
-    # Find AGI's location and its prefix
-    agi_bin = os.path.realpath(os.path.expanduser(__file__))
-    agi_prefix = os.path.dirname(os.path.dirname(agi_bin))
+    # Find GSS's location and its prefix
+    gss_bin = os.path.realpath(os.path.expanduser(__file__))
+    gss_prefix = os.path.dirname(os.path.dirname(gss_bin))
 
-    # Allow AGI libs to be imported in our scripts
-    agi_lib_path = os.path.join(agi_prefix, "src")
-    sys.path.insert(0, agi_lib_path)
+    # Allow GSS libs to be imported in our scripts
+    gss_lib_path = os.path.join(gss_prefix, "src")
+    sys.path.insert(0, gss_lib_path)
 
-    # Import AGI modules
-    from AGI.AGI import AGI
+    # Import GSS modules
+    from GSS.GSS import GSS
 
     # Main parser
-    parser = argparse.ArgumentParser(description='Monitor and analyze resource usage of a workload with AGI')
+    parser = argparse.ArgumentParser(description='Monitor and analyze resource usage of a workload with GSS')
 
     # Subparsers
     subparsers = parser.add_subparsers(dest='subcommand', help='sub-command help')
@@ -65,10 +65,10 @@ def main():
     args = parser.parse_args()
 
     # Run appropriate command
-    agi_obj = AGI(args)
+    gss_obj = GSS(args)
 
     if args.subcommand in ['profile', 'export', 'analyze']:
-        agi_obj.run()
+        gss_obj.run()
     else:
         # Print help if no valid subcommand is given
         parser.print_help()

@@ -1,5 +1,5 @@
 ###############################################################
-# Project: Alps GPU Insight
+# Project: GPU saturation scorer
 #
 # File Name: sql_io.py
 #
@@ -12,7 +12,7 @@
 #
 ###############################################################
 
-from AGI.io.base_io import BaseIO
+from GSS.io.base_io import BaseIO
 import os
 import sqlite3
 import pandas as pd

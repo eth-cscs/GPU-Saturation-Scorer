@@ -1,5 +1,5 @@
 ###############################################################
-# Project: Alps GPU Insight
+# Project: GPU saturation scorer
 #
 # File Name: export.py
 #
@@ -17,9 +17,9 @@ import pandas as pd
 import sqlite3
 import numpy as np
 
-from AGI.io.json_io import JSONDataIO
-from AGI.io.binary_io import BinaryDataIO
-from AGI.io.sql_io import SQLIO
+from GSS.io.json_io import JSONDataIO
+from GSS.io.binary_io import BinaryDataIO
+from GSS.io.sql_io import SQLIO
 
 from datetime import datetime
 

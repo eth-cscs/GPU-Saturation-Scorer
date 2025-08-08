@@ -1,5 +1,5 @@
 # Usage
-This document details the usage and workflow for the AGI - ALPS GPU Insights profiling utility.
+This document details the usage and workflow for the GSS - GPU saturation scorer profiling utility.
 
 ## Typical Workflow
 The typical workflow to profile a workload consists of two main steps:
@@ -7,18 +7,18 @@ The typical workflow to profile a workload consists of two main steps:
 1. Collecting performance data from the GPUs for a given workload
 2. Analysing and visualising the performance results
 
-AGI divides these two steps by defining two modules named `profile` and `analyze`.
+GSS divides these two steps by defining two modules named `profile` and `analyze`.
 
 ### Profiling a workload
-The first data collection step is done via the `profile module`. Currently AGI only supports profiling workloads launched via the SLURM workload manager. This is necessary in order to obtain information regarding which resources must be monitored. AGI should be called _after_ the `srun` command. Moreover, it is best practice to set the number of GPUs per task esplicitly by passing `--gpus-per-task=1`. It is important to notice that currently **AGI only supports workloads that allocate 1 GPU per CPU (MPI) process**. In the future, support for different configurations will be added.
+The first data collection step is done via the `profile module`. Currently GSS only supports profiling workloads launched via the SLURM workload manager. This is necessary in order to obtain information regarding which resources must be monitored. GSS should be called _after_ the `srun` command. Moreover, it is best practice to set the number of GPUs per task esplicitly by passing `--gpus-per-task=1`. It is important to notice that currently **GSS only supports workloads that allocate 1 GPU per CPU (MPI) process**. In the future, support for different configurations will be added.
 
 An profiling command for a workload named `my_workload` could look like this:
 
 ```bash
-srun -N 4 --ntasks-per-node=4 --gpus-per-task=1 agi profile -o my_workload.sql --wrap "./my_workload arg1 arg2 ... argN"
+srun -N 4 --ntasks-per-node=4 --gpus-per-task=1 gss profile -o my_workload.sql --wrap "./my_workload arg1 arg2 ... argN"
 ```
 
-Notice the inclusion of `-o my_workload.sql`: AGI stores the collected data in a SQLite dabase. The easiest way to access the raw metrics as well as the metadata is with the `sqlite3` python module combined with the `read_sql` method of the Pandas library.
+Notice the inclusion of `-o my_workload.sql`: GSS stores the collected data in a SQLite dabase. The easiest way to access the raw metrics as well as the metadata is with the `sqlite3` python module combined with the `read_sql` method of the Pandas library.
 
 The workload launch commad is wrapped in quotaation marks and passed to the `--wrap` argument, similarly to how the `sbatch --wrap` option works.
 
@@ -37,11 +37,11 @@ All aggregation techniques are accessed via the `analyze` module by specifying d
 An example analysis command that applies all three aggregation techniques is:
 
 ```
-agi analyze -i my_workload.sql --plot-time-series --plot-load-balancing
+gss analyze -i my_workload.sql --plot-time-series --plot-load-balancing
 ```
 or alternatively:
 ```
-agi analyze -i my_workload.sql -pts -plb
+gss analyze -i my_workload.sql -pts -plb
 ```
 
 These commands will automatically generate a set of graphical visualisations for the collected GPU metrics.
@@ -50,7 +50,7 @@ A more detailed explanation of the options provided by the `analyze` module can 
 
 ## Performance metrics
 
-AGI collects different profiling metrics that can help in evaluating both the efficiency as well as the inefficiencies of a workload. The metrics offered by AGI are the following:
+GSS collects different profiling metrics that can help in evaluating both the efficiency as well as the inefficiencies of a workload. The metrics offered by GSS are the following:
 1. SM Activity
 2. SM Occupancy
 3. Tensor Activity

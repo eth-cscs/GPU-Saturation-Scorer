@@ -1,5 +1,5 @@
 ###############################################################
-# Project: Alps GPU Insight
+# Project: GPU saturation scorer
 #
 # File Name: metrics.py
 #

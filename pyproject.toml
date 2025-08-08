@@ -6,7 +6,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = 'alps_gpu_insight'
+name = 'gpu_saturation_scorer'
 requires-python = ">=3.9"
 version = "0.1.1"
 dependencies = [
@@ -31,4 +31,4 @@ where = ["src"]
 fonts = ["*.ttf"]
 
 [project.scripts]
-agi = "AGI.__main__:main"
+gss = "GSS.__main__:main"

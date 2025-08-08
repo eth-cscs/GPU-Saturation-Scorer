@@ -1,5 +1,5 @@
 ###############################################################
-# Project: Alps GPU Insight
+# Project: GPU saturation scorer
 #
 # File Name: slurm_handler.py
 #
@@ -11,6 +11,7 @@
 #
 # Authors:
 # Marcel Ferrari (CSCS)
+# Cerlane Leong (CSCS)
 #
 ###############################################################
 
@@ -81,7 +82,7 @@ class SlurmJob:
         - None
 
         Notes:
-        - AGI uses the following environment variables: SLURM_JOB_ID, SLURM_PROCID, SLURM_STEP_GPUS.
+        - GSS uses the following environment variables: SLURM_JOB_ID, SLURM_PROCID, SLURM_STEP_GPUS.
         - If SLURM_STEP_GPUS is not found, the method will use SLURM_PROCID mod 4 to determine the GPU ID.
           This is only a workaround and may not work in all cases.
         - The method will throw an error if SLURM_JOB_ID or SLURM_PROCID are not found.
@@ -116,12 +117,9 @@ class SlurmJob:
         # Get hostname - this is done via the socket module and should always work regardless of the Slurm environment
         self.hostname = socket.gethostname()
 
-        # Set output folder and file
-        #if not self.output_folder:
-        #    self.output_folder = f"JOB_{self.job_id}"
         # if output_folder is the default 'profile_out', then append job_id to it
         if self.output_folder=='profile_out':
-             self.output_folder += f"_JobID_{self.job_id}"
+            self.output_folder += f"_JobID_{self.job_id}"
 
         # Set output directory for specific job
         self.output_folder = os.path.join(self.output_folder, self.label)
