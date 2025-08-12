@@ -26,6 +26,7 @@ license-files = ["LICENSE", "AUTHORS.md"]
 
 [project.urls]
 Repository = "https://github.com/eth-cscs/GPU-saturation-scorer.git"
+Changelog = "https://github.com/eth-cscs/GPU-saturation-scorer/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
 include-package-data = true #default true
