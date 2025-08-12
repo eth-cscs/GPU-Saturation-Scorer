@@ -1,9 +1,0 @@
-numpy
-pandas
-scipy
-matplotlib
-seaborn
-tabulate
-rich
-fpdf2
-tqdm

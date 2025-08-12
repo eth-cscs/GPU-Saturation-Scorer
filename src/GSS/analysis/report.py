@@ -1,5 +1,5 @@
 ###############################################################
-# Project: Alps GPU Insight
+# Project: GPU saturation scorer
 #
 # File Name: report.py
 #
@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from scipy.interpolate import griddata
 from scipy.spatial.qhull import QhullError
-from AGI.io.format import *
+from GSS.io.format import *
 
 from pathlib import Path
 
@@ -108,6 +108,9 @@ class PDFReport:
         self.pdf.cell(297, 10, f"Generated on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 0, 1, "C")
 
     def draw_metadata(self):
+        # Reduce length of cmd if it is too long. 
+        if len(self.job['cmd'])>500:
+            self.job['cmd'] = f"{self.job['cmd'][0:500]}" + "..."
         # Add metadata table to the report
         metadata = {
             "Job Metadata Entry": ["Job ID", 
@@ -458,24 +461,24 @@ class PDFReport:
             # Extract the metric values for the current metric
             y = data[metric].to_numpy()
        
-            if np.abs(y).max() > 1e-3:
-                try: 
-                    # Interpolate (x, t, y) to (X, T, Y)
-                    Y = griddata((x, t), y, (X, T), method='linear')
+            #if np.abs(y).max() > 1e-3:
+            try: 
+                # Interpolate (x, t, y) to (X, T, Y)
+                Y = griddata((x, t), y, (X, T), method='linear')
 
-                    # Plot heatmap for the current metric
-                    figpath = self.plot_heatmap(X, T, Y, metric)
+                # Plot heatmap for the current metric
+                figpath = self.plot_heatmap(X, T, Y, metric)
 
-                    self.pdf.image(figpath, x=self.pdf.l_margin, h=(self.pdf.h - self.pdf.b_margin - self.pdf.t_margin)/2.2)
-                    self.pdf.ln(5)
-                except QhullError:
-                      emsg = "Data is 2 dimension. Heatmap ("+metric+") cannot be generated. This is likely because only one gpu is used."
-                      self.draw_warnings(emsg)
-                      print("[WARN] " + emsg)
-            else:
-                 emsg = "Metric is too small for heatmap ("+metric+") to be plotted."
-                 self.draw_warnings(emsg)
-                 print("[WARN] " + emsg)
+                self.pdf.image(figpath, x=self.pdf.l_margin, h=(self.pdf.h - self.pdf.b_margin - self.pdf.t_margin)/2.2)
+                self.pdf.ln(5)
+            except QhullError:
+                    emsg = "Data is 2 dimension. Heatmap ("+metric+") cannot be generated. This is likely because only one gpu is used."
+                    self.draw_warnings(emsg)
+                    print("[WARN] " + emsg)
+            #else:
+            #     emsg = "Metric is too small for heatmap ("+metric+") to be plotted."
+            #     self.draw_warnings(emsg)
+            #     print("[WARN] " + emsg)
 
     def write(self):        
         # Create new PDF file

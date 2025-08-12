@@ -6,9 +6,9 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = 'alps_gpu_insight'
+name = 'gss'
 requires-python = ">=3.9"
-version = "0.1.1"
+version = "0.2"
 dependencies = [
     "pandas",
     "matplotlib",
@@ -20,6 +20,13 @@ dependencies = [
     "fpdf2",
     "tqdm",
 ]
+readme = 'README.md'
+license = "BSD-3-Clause"
+license-files = ["LICENSE", "AUTHORS.md"]
+
+[project.urls]
+Repository = "https://github.com/eth-cscs/GPU-Saturation-Scorer.git"
+Changelog = "https://github.com/eth-cscs/GPU-Saturation-Scorer/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
 include-package-data = true #default true
@@ -31,4 +38,4 @@ where = ["src"]
 fonts = ["*.ttf"]
 
 [project.scripts]
-agi = "AGI.__main__:main"
+gss = "GSS.__main__:main"
