@@ -1,7 +1,13 @@
-# GPU saturation scorer
-Gss is a utility meant to collect and analyze GPU performance metrics on the CSCS ALPS System. it is based on top of Nvidia's DCGM tool.
+# GPU Saturation Scorer (gss)
+`gss` is a utility meant to collect and analyze GPU performance metrics on the CSCS ALPS System. it is based on top of Nvidia's DCGM tool.
 
 ## Install
+### From Pypi
+```
+pip install gss
+```
+
+### From GitHub Source
 ```
 pip install git+https://github.com/eth-cscs/GPU-saturation-scorer.git
 ```
@@ -45,5 +51,8 @@ A/Multiple PDF report(s) will be generated containing all the generated plots.
 ```
 gss analyze -i ./profile_out --export data.sqlite3
 ```
-
+## More Options
+```
+gss --help
+```
 
