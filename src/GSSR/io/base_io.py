@@ -1,5 +1,5 @@
 ###############################################################
-# Project: GPU Saturation Scorer
+# Project: GPU saturation scorer
 #
 # File Name: base_io.py
 #

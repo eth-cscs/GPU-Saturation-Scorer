@@ -1,5 +1,5 @@
 # Usage
-This document details the usage and workflow for the GSSR - GPU Saturation Scorer profiling utility.
+This document details the usage and workflow for the GSSR - GPU saturation scorer profiling utility.
 
 ## Typical Workflow
 The typical workflow to profile a workload consists of two main steps:

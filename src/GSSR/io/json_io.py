@@ -1,5 +1,5 @@
 ###############################################################
-# Project: GPU Saturation Scorer
+# Project: GPU saturation scorer
 #
 # File Name: json_io.py
 #
@@ -14,7 +14,7 @@
 
 import json
 import os
-from GSSR.io.base_io import BaseIO
+from GSS.io.base_io import BaseIO
 
 class JSONDataIO(BaseIO):
     """

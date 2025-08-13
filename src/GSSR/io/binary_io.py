@@ -1,5 +1,5 @@
 ##############################################################
-# Project: GPU Saturation Scorer
+# Project: GPU saturation scorer
 #
 # File Name: binary_io.py
 #
@@ -13,7 +13,7 @@
 
 import pickle
 import os
-from GSSR.io.base_io import BaseIO
+from GSS.io.base_io import BaseIO
 
 # This class is used to handle JSON data input/output
 class BinaryDataIO(BaseIO):

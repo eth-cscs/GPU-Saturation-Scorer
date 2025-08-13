@@ -1,11 +1,11 @@
 ###############################################################
-# Project: GPU Saturation Scorer
+# Project: GPU saturation scorer
 #
 # File Name: analysis.py
 #
 # Description:
 # This file contains the implementation of the high level analysis
-# functions for GPU metrics. GSSR provides some quick and easy to use
+# functions for GPU metrics. GSS provides some quick and easy to use
 # options for basic data analysis and visualization, however it is
 # not intended to be a full-fledged data analysis tool. For more
 # advanced analysis, users are encouraged to handle the raw data
@@ -28,12 +28,12 @@ import shutil
 from tqdm import tqdm
 
 
-# GSSR imports
-from GSSR.io.sql_io import SQLIO
-from GSSR.io.format import *
-#from GSSR.analysis.grapher import Grapher
-from GSSR.profile.metrics import gpu_activity_metrics, flop_activity_metrics, memory_activity_metrics
-from GSSR.analysis.report import PDFReport
+# GSS imports
+from GSS.io.sql_io import SQLIO
+from GSS.io.format import *
+#from GSS.analysis.grapher import Grapher
+from GSS.profile.metrics import gpu_activity_metrics, flop_activity_metrics, memory_activity_metrics
+from GSS.analysis.report import PDFReport
 
 class GPUMetricsAnalyzer:
     """

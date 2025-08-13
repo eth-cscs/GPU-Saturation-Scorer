@@ -1,5 +1,5 @@
 ###############################################################
-# Project: GPU Saturation Scorer
+# Project: GPU saturation scorer
 #
 # File Name: import_check.py
 #

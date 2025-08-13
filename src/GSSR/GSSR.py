@@ -1,12 +1,12 @@
 ###############################################################
-# Project: GPU Saturation Scorer
+# Project: GPU saturation scorer
 #
-# File Name: GSSR.py
+# File Name: GSS.py
 #
 # Description:
-# This file implements the GSSR class, which is used to drive the
-# GSSR tool. It contains the main driver functions for the subcommands
-# of the GSSR tool. The GSSR class is responsible for parsing the command
+# This file implements the GSS class, which is used to drive the
+# GSS tool. It contains the main driver functions for the subcommands
+# of the GSS tool. The GSS class is responsible for parsing the command
 # line arguments and calling the appropriate subcommand.
 #
 # Authors:
@@ -22,21 +22,21 @@ import sys
 import argparse
 
 # Needed by all subcommands
-from GSSR.utils.import_check import check_import_requirements
+from GSS.utils.import_check import check_import_requirements
 
-# Driver functions for the GSSR tool
-class GSSR:
+# Driver functions for the GSS tool
+class GSS:
     """
     Description:
-    This class is used to drive the GSSR tool.
-    It contains the main driver functions for the subcommands of the GSSR tool. 
+    This class is used to drive the GSS tool.
+    It contains the main driver functions for the subcommands of the GSS tool. 
 
     Attributes:
     - args: The parsed command line arguments.
     
     Methods:
     - __init__(self, args): Constructor method.
-    - run(self): Run the GSSR tool.
+    - run(self): Run the GSS tool.
     - profile(self): Driver function for the profile subcommand.
     - export(self): Driver function for the export subcommand.
     - analyze(self): Driver function for the analyze subcommand.
@@ -64,7 +64,7 @@ class GSSR:
     def run(self) -> None:
         """
         Description:
-        Run the GSSR tool.
+        Run the GSS tool.
 
         Parameters:
         - None
@@ -98,16 +98,16 @@ class GSSR:
           If something is missing, it will throw an error.
         - We expect this method to be called concurrently by multiple processes.
         """
-        from GSSR.utils.import_check import load_dcgm
+        from GSS.utils.import_check import load_dcgm
 
         # Check if all requirements are installed
         check_import_requirements()
 
-        # Check if DCGM bindings are available before importing GSSR modules
+        # Check if DCGM bindings are available before importing GSS modules
         load_dcgm()
 
-        # Import GSSR modules
-        from GSSR.utils.slurm_handler import SlurmJob
+        # Import GSS modules
+        from GSS.utils.slurm_handler import SlurmJob
         from .profile.gpu_metrics_profiler import GPUMetricsProfiler
 
         # Create SlurmJob object - this will read the Slurm environment
@@ -147,8 +147,8 @@ class GSSR:
         
         # Check if all requirements are installed
 
-        # Import GSSR modules
-        from GSSR.export.export import ExportDataHandler
+        # Import GSS modules
+        from GSS.export.export import ExportDataHandler
 
         # Check that input path is a folder
         if not os.path.isdir(in_path):
@@ -222,7 +222,7 @@ class GSSR:
         # Check if all requirements are installed
         check_import_requirements()
 
-        from GSSR.analysis.analysis import GPUMetricsAnalyzer
+        from GSS.analysis.analysis import GPUMetricsAnalyzer
 
         # Check if input_file is a directory
         if os.path.isdir(self.args.input):    

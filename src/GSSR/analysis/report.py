@@ -1,5 +1,5 @@
 ###############################################################
-# Project: GPU Saturation Scorer
+# Project: GPU saturation scorer
 #
 # File Name: report.py
 #
@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from scipy.interpolate import griddata
 from scipy.spatial.qhull import QhullError
-from GSSR.io.format import *
+from GSS.io.format import *
 
 from pathlib import Path
 

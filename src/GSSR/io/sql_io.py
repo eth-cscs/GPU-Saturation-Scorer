@@ -1,5 +1,5 @@
 ###############################################################
-# Project: GPU Saturation Scorer
+# Project: GPU saturation scorer
 #
 # File Name: sql_io.py
 #
@@ -12,7 +12,7 @@
 #
 ###############################################################
 
-from GSSR.io.base_io import BaseIO
+from GSS.io.base_io import BaseIO
 import os
 import sqlite3
 import pandas as pd
@@ -184,4 +184,4 @@ class SQLIO(BaseIO):
         - The behavior of this method is equivalent to if_exists='append' in the create_table() method.
           This is done to ensure consistency and readability.
         """
-
+        df.to_sql(tname, self.conn, if_exists='append', index=False)

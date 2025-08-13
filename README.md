@@ -9,15 +9,15 @@ pip install gssr
 
 ### From GitHub Source
 ```
-pip install git+https://github.com/eth-cscs/GPU-Saturation-Scorer.git
+pip install git+https://github.com/eth-cscs/GPU-saturation-scorer.git
 ```
 To install from a specific branch, e.g. the development branch
 ```
-pip install git+https://github.com/eth-cscs/GPU-Saturation-Scorer.git@dev
+pip install git+https://github.com/eth-cscs/GPU-saturation-scorer.git@dev
 ```
 To install a specific release from a tag, e.g. v0.1.1
 ```
-pip install git+https://github.com/eth-cscs/GPU-Saturation-Scorer.git@v0.2
+pip install git+https://github.com/eth-cscs/GPU-saturation-scorer.git@v0.2
 ```
 
 ## Profile
