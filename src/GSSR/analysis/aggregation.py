@@ -2,8 +2,8 @@
 import numpy as np
 import pandas as pd
 
-# GSS imports
-from GSS.io.format import formatDataFrame
+# GSSR imports
+from GSSR.io.format import formatDataFrame
 
 
 class GPUMetricsAggregator:

@@ -1,5 +1,5 @@
 ###############################################################
-# Project: GPU saturation scorer
+# Project: GPU Saturation Scorer
 #
 # File Name: report.py
 #
@@ -20,24 +20,24 @@ import argparse
 
 def main():
     """
-    Main function to run the GSS tool.
+    Main function to run the GSSR tool.
     It sets up the command line argument parser, imports necessary modules,
     and runs the appropriate subcommand based on the parsed arguments.
     """
 
-    # Find GSS's location and its prefix
-    gss_bin = os.path.realpath(os.path.expanduser(__file__))
-    gss_prefix = os.path.dirname(os.path.dirname(gss_bin))
+    # Find GSSR's location and its prefix
+    gssr_bin = os.path.realpath(os.path.expanduser(__file__))
+    gssr_prefix = os.path.dirname(os.path.dirname(gssr_bin))
 
-    # Allow GSS libs to be imported in our scripts
-    gss_lib_path = os.path.join(gss_prefix, "src")
-    sys.path.insert(0, gss_lib_path)
+    # Allow GSSR libs to be imported in our scripts
+    gssr_lib_path = os.path.join(gssr_prefix, "src")
+    sys.path.insert(0, gssr_lib_path)
 
-    # Import GSS modules
-    from GSS.GSS import GSS
+    # Import GSSR modules
+    from GSSR.GSSR import GSSR
 
     # Main parser
-    parser = argparse.ArgumentParser(description='Monitor and analyze resource usage of a workload with GSS')
+    parser = argparse.ArgumentParser(description='Monitor and analyze resource usage of a workload with GSSR')
 
     # Subparsers
     subparsers = parser.add_subparsers(dest='subcommand', help='sub-command help')
@@ -65,10 +65,10 @@ def main():
     args = parser.parse_args()
 
     # Run appropriate command
-    gss_obj = GSS(args)
+    gssr_obj = GSSR(args)
 
     if args.subcommand in ['profile', 'export', 'analyze']:
-        gss_obj.run()
+        gssr_obj.run()
     else:
         # Print help if no valid subcommand is given
         parser.print_help()

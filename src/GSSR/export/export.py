@@ -1,5 +1,5 @@
 ###############################################################
-# Project: GPU saturation scorer
+# Project: GPU Saturation Scorer
 #
 # File Name: export.py
 #
@@ -17,9 +17,9 @@ import pandas as pd
 import sqlite3
 import numpy as np
 
-from GSS.io.json_io import JSONDataIO
-from GSS.io.binary_io import BinaryDataIO
-from GSS.io.sql_io import SQLIO
+from GSSR.io.json_io import JSONDataIO
+from GSSR.io.binary_io import BinaryDataIO
+from GSSR.io.sql_io import SQLIO
 
 from datetime import datetime
 

@@ -1,10 +1,10 @@
-# GPU Saturation Scorer (gss)
-`gss` is a utility meant to collect and analyze GPU performance metrics on the CSCS ALPS System. it is based on top of Nvidia's DCGM tool.
+# GPU Saturation Scorer (gssr)
+`gssr` is a utility meant to collect and analyze GPU performance metrics on the CSCS ALPS System. it is based on top of Nvidia's DCGM tool.
 
 ## Install
 ### From Pypi
 ```
-pip install gss
+pip install gssr
 ```
 
 ### From GitHub Source
@@ -28,7 +28,7 @@ srun python test.py
 ```
 The srun command should be modified as follows.:
 ```
-srun gss profile -wrap="python abc.py"
+srun gssr profile -wrap="python abc.py"
 ```
 * The agi option to run is "profile".
 * The "---wrap" flag will wrap the command you would like to run.
@@ -39,20 +39,20 @@ srun gss profile -wrap="python abc.py"
 ### Metric Output
 The profiled output can be analysed as follows.:
 ```
-gss analyze -i ./profile_out
+gssr analyze -i ./profile_out
 ```
 ### PDF File Output with Plots
 ```
-gss analyze -i ./profile_out --report
+gssr analyze -i ./profile_out --report
 ```
 A/Multiple PDF report(s) will be generated containing all the generated plots.
 
 ### Exporting the Profiled Output as a SQLite3 file
 ```
-gss analyze -i ./profile_out --export data.sqlite3
+gssr analyze -i ./profile_out --export data.sqlite3
 ```
 ## More Options
 ```
-gss --help
+gssr --help
 ```
 

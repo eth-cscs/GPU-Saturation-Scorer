@@ -1,5 +1,5 @@
 ###############################################################
-# Project: GPU saturation scorer 
+# Project: GPU Saturation Scorer 
 #
 # File Name: gpu_metrics_profiler.py
 #
@@ -16,11 +16,11 @@
 # DCGM imports
 from DcgmReader import DcgmReader
 
-# GSS imports
-from GSS.io.json_io import JSONDataIO
-from GSS.io.binary_io import BinaryDataIO
-from GSS.utils.slurm_handler import SlurmJob
-from GSS.profile.metrics import metric_ids
+# GSSR imports
+from GSSR.io.json_io import JSONDataIO
+from GSSR.io.binary_io import BinaryDataIO
+from GSSR.utils.slurm_handler import SlurmJob
+from GSSR.profile.metrics import metric_ids
 
 # Other imports
 import time
@@ -59,7 +59,7 @@ class GPUMetricsProfiler:
     Notes:
     - The profiler supports two output formats: JSON and binary. The default is JSON as it is human-readable,
       but binary is recommended for large datasets as it is more efficient.
-    - Currently, this is the main profiling class in GSS, however in the future support for CPU profiling
+    - Currently, this is the main profiling class in GSSR, however in the future support for CPU profiling
       as well as MPI/NCCL profiling will be added.
 
     """

@@ -1,5 +1,5 @@
 ###############################################################
-# Project: GPU saturation scorer
+# Project: GPU Saturation Scorer
 #
 # File Name: slurm_handler.py
 #
@@ -82,7 +82,7 @@ class SlurmJob:
         - None
 
         Notes:
-        - GSS uses the following environment variables: SLURM_JOB_ID, SLURM_PROCID, SLURM_STEP_GPUS.
+        - GSSR uses the following environment variables: SLURM_JOB_ID, SLURM_PROCID, SLURM_STEP_GPUS.
         - If SLURM_STEP_GPUS is not found, the method will use SLURM_PROCID mod 4 to determine the GPU ID.
           This is only a workaround and may not work in all cases.
         - The method will throw an error if SLURM_JOB_ID or SLURM_PROCID are not found.

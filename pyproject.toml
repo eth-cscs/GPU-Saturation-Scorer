@@ -6,7 +6,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = 'gss'
+name = 'gssr'
 requires-python = ">=3.9"
 version = "0.2"
 dependencies = [
@@ -38,4 +38,4 @@ where = ["src"]
 fonts = ["*.ttf"]
 
 [project.scripts]
-gss = "GSS.__main__:main"
+gssr = "GSSR.__main__:main"
