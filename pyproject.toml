@@ -6,9 +6,9 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = 'gss'
+name = 'gssr'
 requires-python = ">=3.9"
-version = "0.2"
+version = "0.333"
 dependencies = [
     "pandas",
     "matplotlib",
@@ -25,8 +25,7 @@ license = "BSD-3-Clause"
 license-files = ["LICENSE", "AUTHORS.md"]
 
 [project.urls]
-Repository = "https://github.com/eth-cscs/GPU-Saturation-Scorer.git"
-Changelog = "https://github.com/eth-cscs/GPU-Saturation-Scorer/blob/main/CHANGELOG.md"
+Repository = "https://github.com/eth-cscs/GPU-saturation-scorer.git"
 
 [tool.setuptools]
 include-package-data = true #default true
@@ -38,4 +37,4 @@ where = ["src"]
 fonts = ["*.ttf"]
 
 [project.scripts]
-gss = "GSS.__main__:main"
+gssr = "GSSR.__main__:main"
