@@ -2,7 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v0.2] - 2025-08-13
+## [gssr-v0.3] - 2025-08-13
+### New
+- Change name to gssr for (Gpu Saturation ScoreR) as gss is already reserved at pypi
+
+
+## [v0.2] - 2025-08-12
 
 ### New
 - Installation directly from GitHub and pypi
