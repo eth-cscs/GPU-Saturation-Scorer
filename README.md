@@ -18,8 +18,8 @@ A simple example to test the setup is to record a few seconds of no activity.
 Here we fist run the `sleep` command for 30 seconds and store the recorded data in a directory called `gr-sleep-test`.
 The PDF report is created using the data in that directory.
 ```bash
-./gssr-record -o gr-sleep-test sleep 30
-./gssr-analyze.py gr-sleep-test -o gr-sleep-test-report.pdf
+./gssr-record sleep 30
+./gssr-analyze gssr-report -o gr-sleep-test-report.pdf
 ```
 
 # Recording Metrics
@@ -42,7 +42,7 @@ com.hooks.dcgm.enabled = "true"
 
 # Generating a Report
 ```bash
-usage: gssr-analyze.py [-h] [-o OUTPUT] [directory ...]
+usage: gssr-analyze [-h] [-o OUTPUT] [directory ...]
 
 Generate a report from GPU metrics collected with gssr-record.
 
