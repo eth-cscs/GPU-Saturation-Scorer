@@ -909,8 +909,8 @@ int main(int argc, char **argv)
     char gpu_group_name[10+1+7+1];
     char field_group_name[7+1+7+1];
 
-    snprintf(  gpu_group_name, sizeof(  gpu_group_name), "slurm_gpus_%ld", getpid());
-    snprintf(field_group_name, sizeof(field_group_name), "metrics_%ld", getpid());
+    snprintf(  gpu_group_name, sizeof(  gpu_group_name), "slurm_gpus_%d", getpid());
+    snprintf(field_group_name, sizeof(field_group_name), "metrics_%d", getpid());
 
     /* Create GPU group */
     dcgmGpuGrp_t gpuGroup;
@@ -925,7 +925,7 @@ int main(int argc, char **argv)
     if (dcgmFieldGroupCreate(handle, numFields, fieldIds, field_group_name, &fieldGroup) != DCGM_ST_OK)
     {
         fprintf(stderr, PROGNAME": Unable to create a DCGM monitoring field group. Command will not be monitored.\n");
-        goto destroy_fieldgroup;
+        goto destroy_group;
     }
 
     unsigned int devices[MAX_GPUS];

@@ -1,7 +1,7 @@
 CC=gcc
 
 all:
-	$(CC) gssr-record.c gssr-record-tests.c -g -O0 -ldcgm -o gssr-record 
+	$(CC) gssr-record.c gssr-record-tests.c -Wall -g -O0 -ldcgm -o gssr-record 
 
 clean:
 	rm gssr-record
