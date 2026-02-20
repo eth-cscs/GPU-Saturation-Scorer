@@ -9,7 +9,7 @@ make install-uv
 mkdir -p testing-tmp
 cd testing-tmp
 
-GA=$(realpath ../gssr-analyze.py)
+GA=$(realpath ../gssr-analyze)
 GR=$(realpath ../gssr-record)
 
 set -x
@@ -79,6 +79,14 @@ function test_02_dcgmproftester()
 
     srun -N32 --ntasks-per-node=4 --gpus-per-task=1 -t 00:10:00 $GR -o test-report-02c /usr/bin/dcgmproftester12 -t 1006 -d 600  --max-processes 1
     $GA test-report-02c -o test-report-02c.pdf
+}
+
+function test_020_dcgmproftester_128n()
+{
+    rm -rf test-report-020-large
+
+    srun -N128 --ntasks-per-node=4 -t 00:010:00 $GR -o test-report-020-large /usr/bin/dcgmproftester12 -t 1006 -d 240 
+    $GA test-report-020-large -o test-report-020.pdf
 }
 
 function test_01_multireport()
@@ -218,7 +226,7 @@ EOF
 #test_ga_basic
 #test_00_sleep
 #test_01_dcgmproftester
-test_01_multireport
+#test_01_multireport
 #test_02_dcgmproftester
 #test_03_signal
 #test_04_long_running
@@ -229,3 +237,4 @@ test_01_multireport
 #test_08_concurrent_srun
 #test_00_dir_permission
 #test_09_overlapping_srun
+test_020_dcgmproftester_128n
