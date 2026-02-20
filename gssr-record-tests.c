@@ -8,15 +8,17 @@ void test_job_environment()
     jobenv_t je;
     char hostname[256];
     gethostname(hostname, 256);
+    char pid[256];
+    snprintf(pid, 256, "%i", getpid());
 
     job_environment(&je);
     assert(je.with_slurm == 0);
     assert(!strcmp(je.slurm_step, "0"));
     assert(!strcmp(je.slurm_rank, "0"));
     assert(!strcmp(je.slurm_localid, "0"));
-    assert(!strcmp(je.slurm_jobid, "0"));
+    assert(!strcmp(je.slurm_jobid, pid));
     assert(!strcmp(je.slurm_jobname, "nojobname"));
-    assert(!strcmp(je.slurm_cluster, "nocluster"));
+    assert(!strcmp(je.slurm_cluster, hostname));
     assert(!strcmp(je.slurm_ntasks, "1"));
     assert(!strcmp(je.slurm_nnodes, "1"));
     assert(!strcmp(je.slurm_ngpus, "0"));
@@ -29,7 +31,7 @@ void test_job_environment()
     assert(!strcmp(je.slurm_step, "0"));
     assert(!strcmp(je.slurm_rank, "0"));
     assert(!strcmp(je.slurm_localid, "0"));
-    assert(!strcmp(je.slurm_jobid, "0"));
+    assert(!strcmp(je.slurm_jobid, pid));
     assert(!strcmp(je.slurm_jobname, "nojobname"));
     unsetenv("SLURM_STEP_ID");
 
@@ -38,7 +40,7 @@ void test_job_environment()
     assert(!strcmp(je.slurm_step, "0"));
     assert(!strcmp(je.slurm_rank, "0"));
     assert(!strcmp(je.slurm_localid, "0"));
-    assert(!strcmp(je.slurm_jobid, "0"));
+    assert(!strcmp(je.slurm_jobid, pid));
     assert(!strcmp(je.slurm_jobname, "nojobname"));
     unsetenv("SLURM_PROC_ID");
 
@@ -47,7 +49,7 @@ void test_job_environment()
     assert(!strcmp(je.slurm_step, "0"));
     assert(!strcmp(je.slurm_rank, "0"));
     assert(!strcmp(je.slurm_localid, "0"));
-    assert(!strcmp(je.slurm_jobid, "0"));
+    assert(!strcmp(je.slurm_jobid, pid));
     assert(!strcmp(je.slurm_jobname, "nojobname"));
     unsetenv("SLURM_LOCALID");
 

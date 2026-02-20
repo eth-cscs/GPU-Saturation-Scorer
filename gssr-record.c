@@ -163,14 +163,21 @@ void job_environment(jobenv_t *je)
 
     je->with_slurm = je->slurm_jobname != NULL;
 
+    je->hostname = (char *)calloc(256, sizeof(char));
+    if (gethostname(je->hostname, 256) != 0) {
+        strncpy(je->hostname, "nohostname", 11);
+    }
+
     if (!je->with_slurm) 
     {
         je->slurm_step     = "0";
         je->slurm_rank     = "0";
         je->slurm_localid  = "0";
         je->slurm_jobid    = "0";
+        je->slurm_jobid = (char *)calloc(256, sizeof(char));
+        snprintf(je->slurm_jobid, 256, "%i", getpid());
         je->slurm_jobname  = "nojobname";
-        je->slurm_cluster  = "nocluster";
+        je->slurm_cluster  = je->hostname;
         je->slurm_ntasks   = "1";
         je->slurm_nnodes   = "1";
         je->slurm_ngpus    = "0";
@@ -185,10 +192,6 @@ void job_environment(jobenv_t *je)
     je->rank0  = !strncmp("0", je->slurm_rank, strlen(je->slurm_rank));
     je->local0 = !strncmp("0", je->slurm_localid, strlen(je->slurm_localid));
 
-    je->hostname = (char *)calloc(256, sizeof(char));
-    if (gethostname(je->hostname, 256) != 0) {
-        strncpy(je->hostname, "nohostname", 11);
-    }
 }
 
 // ==========================================================================
