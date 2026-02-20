@@ -9,6 +9,26 @@
 # ]
 # ///
 
+import os
+import sys
+
+def _reexec_with_uv():
+    # Prevent infinite recursion
+    if os.environ.get('GSSR_UV_ACTIVE'):
+        return
+
+    os.environ['GSSR_UV_ACTIVE'] = '1'
+
+    # Resolve canonical absolute path
+    script = os.path.realpath(__file__)
+
+    os.execvp(
+        'uv',
+        ['uv', 'run', '--script', script] + sys.argv[1:]
+    )
+
+_reexec_with_uv()
+
 #
 # Generate a PDF file from GPU metrics recorded by gssr-record.
 #
