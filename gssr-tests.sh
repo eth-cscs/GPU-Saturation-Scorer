@@ -41,8 +41,14 @@ function test_ga_basic()
 function test_00_sleep()
 {
     $GR -o -- sleep
-    $GR -o test-report-00 sleep 5 && cat test-report-00/nocluster_0/step_0/proc_0.{csv,meta.txt}
-    $GR -o test-report-00 -- sleep 5 && cat test-report-00/nocluster_0/step_0/proc_0.{csv,meta.txt}
+    $GR -o test-report-00 sleep 5 && cat test-report-00/*/step_0/proc_0.{csv,meta.txt}
+    $GR -o test-report-00 -- sleep 5 && cat test-report-00/*/step_0/proc_0.{csv,meta.txt}
+}
+
+function test_00_sleep_ga()
+{
+    $GR -o test-report-00 -- sleep 5
+    $GA test-report-00 -o test-report-00.pdf
 }
 
 function test_00_dir_permission()
@@ -150,27 +156,6 @@ EOF
     $GA test-report-07 -o test-report-07.pdf
 }
 
-function test_container()
-{
-    cat > test-ubuntu.toml <<EOF
-    image = "library/ubuntu:24.04"
-    mounts = ["${SCRATCH}:${SCRATCH}", "${HOME}:${HOME}"]
-    workdir = "${SCRATCH}"
-EOF
-    srun --environment=./test-ubuntu.toml $(realpath $GR) --help
-
-    cat > test-ubuntu.toml <<EOF
-    image = "library/ubuntu:24.04"
-    mounts = ["${SCRATCH}:${SCRATCH}", "${HOME}:${HOME}"]
-    workdir = "${SCRATCH}"
-
-    [annotations]
-    com.hooks.dcgm.enabled = "true"
-EOF
-    srun --environment=./test-ubuntu.toml $(realpath $GR) --help
-
-}
-
 function test_08_concurrent_srun()
 {
     cat > test-report-08.sh <<EOF
@@ -221,20 +206,67 @@ EOF
     $GA test-report-09 -o test-report-09.pdf
 }
 
+function test_10_container()
+{
+    cat > test-ubuntu.toml <<EOF
+    image = "library/ubuntu:24.04"
+    mounts = ["${SCRATCH}:${SCRATCH}", "${HOME}:${HOME}"]
+    workdir = "${SCRATCH}"
+EOF
+    srun --environment=./test-ubuntu.toml $(realpath $GR) --help
 
-#test_gr_basic
-#test_ga_basic
-#test_00_sleep
-#test_01_dcgmproftester
-#test_01_multireport
-#test_02_dcgmproftester
-#test_03_signal
+    cat > test-ubuntu.toml <<EOF
+    image = "library/ubuntu:24.04"
+    mounts = ["${SCRATCH}:${SCRATCH}", "${HOME}:${HOME}"]
+    workdir = "${SCRATCH}"
+
+    [annotations]
+    com.hooks.dcgm.enabled = "true"
+EOF
+    srun --environment=./test-ubuntu.toml $(realpath $GR) --help
+
+}
+
+function test_11_short_output()
+{
+    mkdir -p short-output/step_0
+    python3 ../fake-csv.py -n 1 -g 1 -o short-output/step_0/proc_0.csv
+    $GA short-output -o test-report-11a.pdf
+    rm -rf short-output/step_0
+
+    mkdir -p short-output/step_0
+    python3 ../fake-csv.py -n 0 -g 1 -o short-output/step_0/proc_0.csv
+    $GA short-output -o test-report-11b.pdf
+    rm -rf short-output/step_0
+
+    mkdir -p short-output/step_0
+    python3 ../fake-csv.py -n 10 -g 0 -o short-output/step_0/proc_0.csv
+    $GA short-output -o test-report-11c.pdf
+    rm -rf short-output/step_0
+
+    mkdir -p short-output/step_0
+    python3 ../fake-csv.py -n 100 -g 1 -o short-output/step_0/proc_0.csv
+    $GA short-output -o test-report-11d.pdf
+    exit
+    rm -rf short-output/step_0
+}
+
+test_gr_basic
+test_ga_basic
+test_00_sleep
+test_00_dir_permission
+test_01_dcgmproftester
+test_01_multireport
+test_02_dcgmproftester
+#test_020_dcgmproftester_128n
+test_03_signal
 #test_04_long_running
 #test_05_sphexa
 #test_06_mps_wrapper
 #test_07_multi_mps_wrapper
-#test_container
-#test_08_concurrent_srun
-#test_00_dir_permission
-#test_09_overlapping_srun
-test_020_dcgmproftester_128n
+test_08_concurrent_srun
+test_09_overlapping_srun
+test_10_container
+test_00_sleep_ga
+test_11_short_output
+

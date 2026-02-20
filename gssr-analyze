@@ -93,7 +93,7 @@ def load_metrics_and_meta(paths):
 
             if len(meta_files) == 0:
                 print(f'Missing metadata file in {step}. Attempting to continue.')
-                metadf = dict(cluster=['nocluster'], jobid=['0'])
+                metadf = dict(cluster='nocluster', jobid='0')
             else:
                 meta_file = meta_files[0]
 
@@ -102,7 +102,7 @@ def load_metrics_and_meta(paths):
                         metadf = json.load(f)
                 except json.decoder.JSONDecodeError as e:
                     print(f'Error reading {meta_file}. Attempting to continue. {e}')
-                    metadf = dict(cluster=['nocluster'], jobid=['0'])
+                    metadf = dict(cluster='nocluster', jobid='0')
 
             m = re.search(r"step_(\d+)$", step)
             istep = int(m.group(1))
@@ -118,19 +118,21 @@ def load_metrics_and_meta(paths):
                 try:
                     df = pd.read_csv(proc_file)
 
-                    # Use filename (without extension) as label
-                    df['report']  = path
-                    df['cluster'] = metadf['cluster']
-                    df['jobid']   = metadf['jobid']
-                    df['step']    = istep
-                    df['proc']    = iproc
+                    if not df.empty:
 
-                    # Count the number of unique GPUs this step monitored
-                    ngpus  += df['gpuId'].nunique()
-                    energy += df['DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION_avg'].sum()
+                        # Use filename (without extension) as label
+                        df['report']  = path
+                        df['cluster'] = metadf['cluster']
+                        df['jobid']   = metadf['jobid']
+                        df['step']    = istep
+                        df['proc']    = iproc
 
-                    frames.append(df)
-                    appended_frames += 1
+                        # Count the number of unique GPUs this step monitored
+                        ngpus  += df['gpuId'].nunique()
+                        energy += df['DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION_avg'].sum()
+
+                        frames.append(df)
+                        appended_frames += 1
                 except pd.errors.EmptyDataError:
                     pass
 
@@ -1056,7 +1058,7 @@ def evaluation(pdf, df, metadf):
         if val is None: return crit
         for [lim, rating, msg] in crit:
             if val <= lim:
-                return '%.2f %%' % (val*100), rating, msg
+                return '%.2f' % (val), rating, msg
         return '??', 'Unknown', 'Rating could not be determined from the value.'
 
     def power_eval(val):
@@ -1155,7 +1157,17 @@ def evaluation(pdf, df, metadf):
 
     add_table_headers(table, table2)
 
-    add_double_entry(table, table2, 'GPU Start', 1, start_eval, 100*(df['timestamp'].iloc[-1].item() - first_50util) / (df['timestamp'].iloc[-1].item() - df['timestamp'].iloc[0].item()), None)
+    def gpu_run_fraction():
+        tstart = df['timestamp'].iloc[0].item()
+        tend   = df['timestamp'].iloc[-1].item()
+        if tend <= tstart:
+            return 0
+        if tend <= first_50util:
+            return 0
+        return 100*((tend - first_50util) / (tend - tstart))
+
+
+    add_double_entry(table, table2, 'GPU Start', 1, start_eval, gpu_run_fraction(), None)
     add_double_entry(table, table2, 'GPU Util',  2, util_eval, df['DCGM_FI_DEV_GPU_UTIL_avg'].mean(), df['DCGM_FI_DEV_GPU_UTIL_avg'][first_50util:].mean())
     add_double_entry(table, table2, 'FP Util',   3, fp_eval, fp_avg, fp50_avg)
     add_double_entry(table, table2, 'Power',     4, power_eval, df['DCGM_FI_DEV_POWER_USAGE_avg'].mean(), df['DCGM_FI_DEV_POWER_USAGE_avg'][first_50util:].mean())
