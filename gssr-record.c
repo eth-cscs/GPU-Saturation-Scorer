@@ -18,6 +18,7 @@
 #include <time.h>
 #include <sys/wait.h>
 #include <sys/statfs.h>
+#include <unistd.h>
 //#include <dlfcn.h>
 
 #include <sys/stat.h>
@@ -183,6 +184,11 @@ void job_environment(jobenv_t *je)
 
     je->rank0  = !strncmp("0", je->slurm_rank, strlen(je->slurm_rank));
     je->local0 = !strncmp("0", je->slurm_localid, strlen(je->slurm_localid));
+
+    je->hostname = (char *)calloc(256, sizeof(char));
+    if (gethostname(je->hostname, 256) != 0) {
+        strncpy(je->hostname, "nohostname", 11);
+    }
 }
 
 // ==========================================================================
@@ -897,12 +903,12 @@ int main(int argc, char **argv)
     dcgmHandle_t handle;
     if (dcgmInit() != DCGM_ST_OK)
     {
-        fprintf(stderr, PROGNAME": Unable to initialize DCGM. Command will not be monitored.\n");
+        fprintf(stderr, PROGNAME": Unable to initialize DCGM on node %s. Command will continue but will not be monitored.\n", jobenv.hostname);
         goto reset_sighandler;
     }
     if (dcgmConnect("127.0.0.1", &handle) != DCGM_ST_OK)
     {
-        fprintf(stderr, PROGNAME": Unable to connect to DCGM host engine at 127.0.0.1. Command will not be monitored.\n");
+        fprintf(stderr, PROGNAME": Unable to connect to DCGM host engine on node %s at 127.0.0.1. Command will continue but will not be monitored.\n", jobenv.hostname);
         goto shutdown;
     }
 
@@ -916,7 +922,7 @@ int main(int argc, char **argv)
     dcgmGpuGrp_t gpuGroup;
     if (dcgmGroupCreate(handle, DCGM_GROUP_EMPTY, gpu_group_name, &gpuGroup) != DCGM_ST_OK)
     {
-        fprintf(stderr, PROGNAME": Unable to create a DCGM monitoring group. Command will not be monitored.\n");
+        fprintf(stderr, PROGNAME": Unable to create a DCGM monitoring group on node %s. Command will continue but will not be monitored.\n", jobenv.hostname);
         goto disconnect;
     }
 
@@ -924,7 +930,7 @@ int main(int argc, char **argv)
     dcgmFieldGrp_t fieldGroup;
     if (dcgmFieldGroupCreate(handle, numFields, fieldIds, field_group_name, &fieldGroup) != DCGM_ST_OK)
     {
-        fprintf(stderr, PROGNAME": Unable to create a DCGM monitoring field group. Command will not be monitored.\n");
+        fprintf(stderr, PROGNAME": Unable to create a DCGM monitoring field group on node %s. Command will continue but will not be monitored.\n", jobenv.hostname);
         goto destroy_group;
     }
 
@@ -933,7 +939,7 @@ int main(int argc, char **argv)
 
     if (dcgmGetAllSupportedDevices(handle, devices, &numDevices) != DCGM_ST_OK)
     {
-        fprintf(stderr, PROGNAME": Unable determine supported devices. Command will not be monitored.\n");
+        fprintf(stderr, PROGNAME": Unable determine supported devices on node %s. Command will continue but will not be monitored.\n", jobenv.hostname);
         goto destroy_fieldgroup;
     }
 
@@ -943,20 +949,20 @@ int main(int argc, char **argv)
     {
         if (dcgmGroupAddDevice(handle, gpuGroup, devices[i]) != DCGM_ST_OK)
         {
-            fprintf(stderr, PROGNAME": Unable add device %i to be monitored. Command will not be monitored.\n", i);
+            fprintf(stderr, PROGNAME": Unable add device %i to be monitored on node %s. Command will continue but will not be monitored.\n", i, jobenv.hostname);
             goto destroy_fieldgroup;
         }
     }
 
     if (dcgmWatchFields(handle, gpuGroup, fieldGroup, SUBSAMPLE_INTERVAL, RETENTION_INTERVAL, 0) != DCGM_ST_OK)
     {
-        fprintf(stderr, PROGNAME": Unable monitor the requested fields. Command will not be monitored.\n");
+        fprintf(stderr, PROGNAME": Unable monitor the requested fields on node %s. Command will continue but will not be monitored.\n", jobenv.hostname);
         goto destroy_fieldgroup;
     }
 
     if (dcgmUpdateAllFields(handle, 1) != DCGM_ST_OK)
     {
-        fprintf(stderr, PROGNAME": Unable monitor the requested fields. Command will not be monitored.\n");
+        fprintf(stderr, PROGNAME": Unable monitor the requested fields on node %s. Command will continue but will not be monitored.\n", jobenv.hostname);
         goto unwatch;
     }
 
@@ -983,7 +989,7 @@ int main(int argc, char **argv)
     record_t *records = (record_t *)malloc(MAX_RECORDS * sizeof(*records));
     if (!records)
     {
-        fprintf(stderr, PROGNAME": failed to allocation memory for records. Exiting.\n");
+        fprintf(stderr, PROGNAME": failed to allocation memory for records on node %s. Command will continue but will not be monitored.\n", jobenv.hostname);
         goto cleanup;
     }
     int record_count = 0;

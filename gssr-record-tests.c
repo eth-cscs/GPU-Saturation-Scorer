@@ -1,10 +1,13 @@
 #include <assert.h>
 #include <string.h>
+#include <unistd.h>
 #include "gssr-record.h"
 
 void test_job_environment()
 {
     jobenv_t je;
+    char hostname[256];
+    gethostname(hostname, 256);
 
     job_environment(&je);
     assert(je.with_slurm == 0);
@@ -19,6 +22,7 @@ void test_job_environment()
     assert(!strcmp(je.slurm_ngpus, "0"));
     assert(!strcmp(je.slurm_step_nnodes, "1"));
     assert(!strcmp(je.slurm_step_ntasks, "1"));
+    assert(!strcmp(je.hostname, hostname));
 
     setenv("SLURM_STEP_ID", "123", 1);
     job_environment(&je);

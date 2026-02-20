@@ -69,6 +69,7 @@ typedef struct
     char *slurm_ngpus;
     char *slurm_step_nnodes;
     char *slurm_step_ntasks;
+    char *hostname;
     int rank0;
     int local0;
     int ntasks;
