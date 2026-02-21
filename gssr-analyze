@@ -604,7 +604,7 @@ def title_page(pdf, df, metadf):
 
     fig.text(
         0.5, 0.95,
-        'CSCS Job Report',
+        'GPU Saturation Scorer Report',
         ha='center',
         va='top',
         fontsize=24,
