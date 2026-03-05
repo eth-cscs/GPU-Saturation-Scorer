@@ -87,6 +87,14 @@ function test_02_dcgmproftester()
     $GA test-report-02c -o test-report-02c.pdf
 }
 
+function test_021_dcgmproftester()
+{
+    rm -rf test-report-021
+
+    srun -N1 -n1 -t 00:05:00 $GR -o test-report-021 /usr/bin/dcgmproftester12 -t 1006,1007,1008,1013,1014,1015,1016 -d 20 
+    $GA test-report-021 -o test-report-021.pdf
+}
+
 function test_020_dcgmproftester_128n()
 {
     rm -rf test-report-020-large
@@ -247,26 +255,39 @@ function test_11_short_output()
     mkdir -p short-output/step_0
     python3 ../fake-csv.py -n 100 -g 1 -o short-output/step_0/proc_0.csv
     $GA short-output -o test-report-11d.pdf
-    exit
     rm -rf short-output/step_0
 }
 
-test_gr_basic
-test_ga_basic
-test_00_sleep
-test_00_dir_permission
-test_01_dcgmproftester
-test_01_multireport
-test_02_dcgmproftester
-#test_020_dcgmproftester_128n
-test_03_signal
-#test_04_long_running
-#test_05_sphexa
-#test_06_mps_wrapper
-#test_07_multi_mps_wrapper
-test_08_concurrent_srun
-test_09_overlapping_srun
-test_10_container
-test_00_sleep_ga
-test_11_short_output
+function test_12_fake_output()
+{
+    mkdir -p fake-output/step_0
+    python3 ../fake-csv.py -n 1000 -g 4 -o fake-output/step_0/proc_0.csv
+    $GA fake-output -o test-report-12a.pdf
+    rm -rf fake-output/step_0
 
+    mkdir -p fake-output/step_0
+    python3 ../fake-csv.py -n 10000 -g 4 -o fake-output/step_0/proc_0.csv
+    $GA fake-output -o test-report-12b.pdf
+    rm -rf fake-output/step_0
+}
+
+#test_gr_basic
+#test_ga_basic
+#test_00_sleep
+#test_00_dir_permission
+#test_01_dcgmproftester
+#test_01_multireport
+#test_02_dcgmproftester
+#test_021_dcgmproftester
+##test_020_dcgmproftester_128n
+#test_03_signal
+##test_04_long_running
+##test_05_sphexa
+##test_06_mps_wrapper
+##test_07_multi_mps_wrapper
+#test_08_concurrent_srun
+#test_09_overlapping_srun
+#test_10_container
+#test_00_sleep_ga
+#test_11_short_output
+test_12_fake_output
