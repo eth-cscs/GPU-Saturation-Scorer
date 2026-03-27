@@ -876,6 +876,11 @@ int main(int argc, char **argv)
     {
         // Child process
         if (V >= 2) fprintf(stderr, PROGNAME": Starting %s.\n", args.child_argv[0]);
+        sa.sa_handler = SIG_DFL;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = 0;
+        sigaction(SIGCHLD, &sa, NULL);
+
         execvp(args.child_argv[0], args.child_argv);
         // If execvp returns, there was an error
         if (jobenv.rank0) perror("Failed to execute the command. Is it in the path?");
@@ -888,19 +893,18 @@ int main(int argc, char **argv)
         goto reset_sighandler;
     }
 
-
-    if (V >= 2) fprintf(stderr, PROGNAME": Setting up DCGM connection.\n");
-
     // ------------------------------------------------------------------------
     // Install the signal handler that will cause our monitoring loop to exit.
     // It will also forward signals to the child that might be coming from 
     // slurm.
     // ------------------------------------------------------------------------
     install_signal_handler();
+
     
     // ------------------------------------------------------------------------
     // Now that we are safely past the fork we can start setting up DCGM.
     // ------------------------------------------------------------------------
+    if (V >= 2) fprintf(stderr, PROGNAME": Setting up DCGM connection.\n");
 
     /* Connect to hostengine (standalone mode) */
     dcgmHandle_t handle;
