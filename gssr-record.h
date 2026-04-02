@@ -11,7 +11,7 @@
 #include "dcgm_errors.h"
 
 #define PROGNAME "gssr-record"
-#define VERSION "2.0"
+#define VERSION "2.1"
 
 /* Maximum number of fields to watch */
 #define MAX_FIELDS  20
