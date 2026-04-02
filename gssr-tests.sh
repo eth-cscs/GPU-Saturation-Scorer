@@ -95,6 +95,19 @@ function test_021_dcgmproftester()
     $GA test-report-021 -o test-report-021.pdf
 }
 
+function test_01_long_args()
+{
+    rm -rf test-report-01
+    srun -N2 -n6 $GR -o test-report-01 bash -lc '
+        /usr/bin/dcgmproftester12 
+        -t "1006"
+        -d '\''20'\''
+        '
+
+    ls -ltr
+    $GA test-report-01 -o test-report-01.pdf
+}
+
 function test_020_dcgmproftester_128n()
 {
     rm -rf test-report-020-large
@@ -271,12 +284,105 @@ function test_12_fake_output()
     rm -rf fake-output/step_0
 }
 
+function test_13_newlines_in_meta()
+{
+    mkdir -p test-report-13/nocluster_0/step_0
+
+    cat > test-report-13/nocluster_0/step_0/proc_0.meta.txt <<-EOF
+{
+    "gssr-record-version": "2.0",
+    "date": "2026-03-27T12:38:47+0100",
+    "cluster": "clariden",
+    "jobid": "1735344",
+    "jobname": "test-grpo",
+    "nnodes": "1",
+    "ntasks": "1",
+    "ngpus": "4",
+    "step_nnodes": "1",
+    "step_ntasks": "1",
+    "executable": "bash",
+    "arguments": "'-lc' '
+       set -euo pipefail
+       pip install -U datasets pillow peft bitsandbytes
+       echo "[test] Starting inference with vLLM TP=\$TP_SIZE ..."
+       CUDA_VISIBLE_DEVICES=0,1,2,3 python3 vlm_ground/testgrpo.py
+     ' "
+}
+EOF
+    $GA test-report-13
+}
+
+function test_13b_correct_arguments()
+{
+    mkdir -p test-report-13b/nocluster_0/step_0
+
+    cat > test-report-13b/nocluster_0/step_0/proc_0.meta.txt <<-EOF
+{
+    "gssr-record-version": "2.0",
+    "date": "2026-03-27T12:38:47+0100",
+    "cluster": "clariden",
+    "jobid": "1735344",
+    "jobname": "test-grpo",
+    "nnodes": "1",
+    "ntasks": "1",
+    "ngpus": "4",
+    "step_nnodes": "1",
+    "step_ntasks": "1",
+    "executable": "bash",
+    "arguments": [
+        "-lc",
+        "set -euo pipefail\\n pip install -U datasets pillow peft bitsandbytes\\n echo \\"[test] Starting inference with vLLM TP=\$TP_SIZE ...\\" CUDA_VISIBLE_DEVICES=0,1,2,3 python3 vlm_ground/testgrpo.py"
+        ]
+}
+EOF
+    $GA test-report-13b
+}
+
+function test_13c_correct_arguments()
+{
+    mkdir -p test-report-13c/nocluster_0/step_0
+
+    cat > test-report-13c/nocluster_0/step_0/proc_0.meta.txt <<-"EOF"
+{
+    "gssr-record-version": "2.0",
+    "date": "2026-04-02T18:44:51+0200",
+    "cluster": "test-cluster",
+    "jobid": "4567",
+    "jobname": "test",
+    "nnodes": "4",
+    "ntasks": "128",
+    "ngpus": "4",
+    "step_nnodes": "2",
+    "step_ntasks": "64",
+    "executable": "escape_test",
+    "arguments": [
+      "a\nb",
+      "a\rb",
+      "a\tb",
+      "\"double quotes\"",
+      "'single quotes'",
+      "\\\"\\\""
+    ]
+}
+EOF
+    $GA test-report-13c
+}
+
+function test_14_50util_check()
+{
+    mkdir -p fake-output/step_0
+    python3 ../fake-csv-50util-check.py -n 10 -g 4 -o fake-output/step_0/proc_0.csv
+    $GA fake-output -o test-report-14.pdf
+    #rm -rf fake-output/step_0
+}
+
 #test_gr_basic
 #test_ga_basic
 #test_00_sleep
 #test_00_dir_permission
 #test_01_dcgmproftester
 #test_01_multireport
+#test_01_long_args
 #test_02_dcgmproftester
 #test_021_dcgmproftester
 ##test_020_dcgmproftester_128n
@@ -290,4 +396,9 @@ function test_12_fake_output()
 #test_10_container
 #test_00_sleep_ga
 #test_11_short_output
-test_12_fake_output
+#test_12_fake_output
+#test_13_newlines_in_meta
+#test_13b_correct_arguments
+test_13c_correct_arguments
+#test_01_long_args
+#test_14_50util_check

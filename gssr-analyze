@@ -93,16 +93,49 @@ def load_metrics_and_meta(paths):
 
             if len(meta_files) == 0:
                 print(f'Missing metadata file in {step}. Attempting to continue.')
-                metadf = dict(cluster='nocluster', jobid='0')
+                metadf = dict(cluster='nocluster', jobid='0', arguments=[])
             else:
                 meta_file = meta_files[0]
 
                 try:
                     with open(meta_file) as f:
                         metadf = json.load(f)
+
                 except json.decoder.JSONDecodeError as e:
-                    print(f'Error reading {meta_file}. Attempting to continue. {e}')
-                    metadf = dict(cluster='nocluster', jobid='0')
+                    def parse_json_with_regex(filepath: str) -> dict:
+                        fields = {}
+                        try:
+                            with open(filepath, 'r') as f:
+                                content = f.read()
+
+
+                            # Match string values (handles multiline strings)
+                            string_pattern = re.compile(
+                                r'"([\w-]+)"\s*:\s*"(.*?)"(?=\s*[,}])',
+                                re.DOTALL
+                            )
+
+                            for match in string_pattern.finditer(content):
+                                key = match.group(1)
+                                value = match.group(2)
+                                # Unescape any escaped characters
+                                value = value.replace('\\"', '"').replace('\\n', '\n').replace('\\\\', '\\')
+                                fields[key] = value
+                                if key == 'arguments':
+                                    fields[key] = [value]
+                        except Error as e:
+                            print(f'Error reading {meta_file}. Attempting to continue. {e}')
+
+                        return fields
+
+                    try:
+                        metadf = parse_json_with_regex(meta_file)
+                        metadf.setdefault('arguments', [])
+                    except json.decoder.JSONDecodeError as e:
+                        print(f'Error reading {meta_file}. Attempting to continue. {e}')
+                        metadf = dict(cluster='nocluster', jobid='0', arguments=[])
+
+            metadf['arguments'] = ' '.join([json.dumps(s) for s in metadf['arguments']])
 
             m = re.search(r"step_(\d+)$", step)
             istep = int(m.group(1))
@@ -755,11 +788,11 @@ def definitions_page(pdf):
         [ 'GPU Memory (MB) Used/Free/Reserved',
              'Used/Free/Reserved Frame Buffer of the GPU in MB' ],
         [ 'GPU Utilization (%)',
-             ('The fraction of time any portion of the graphics or compute engines'
+             'The fraction of time any portion of the graphics or compute engines'
              ' were active. The graphics engine is active if a graphics/compute'
              ' context is bound and the graphics/compute pipe is busy. The value'
              ' represents an average over a time interval and is not an instantaneous'
-             ' value.')],
+             ' value.'],
         [ 'SM Active (%)',
              'The fraction of time at least one warp was active on a' +
              ' multiprocessor, averaged over all multiprocessors. Note that "active"' +
@@ -769,42 +802,42 @@ def definitions_page(pdf):
              ' value. '],
         [ 'SM Occupancy (%)',
              'The fraction of resident warps on a multiprocessor, relative to the' +
-             'maximum number of concurrent warps supported on a multiprocessor. The' +
-             'value represents an average over a time interval and is not an' +
-             'instantaneous value. Higher occupancy does not necessarily indicate' +
-             'better GPU usage. For GPU memory bandwidth limited workloads, higher' +
-             'occupancy is indicative of more effective GPU usage. However if the' +
-             'workload is compute limited, then higher occupancy does not' +
-             'necessarily correlate with more effective GPU usage.'],
+             ' maximum number of concurrent warps supported on a multiprocessor. The' +
+             ' value represents an average over a time interval and is not an' +
+             ' instantaneous value. Higher occupancy does not necessarily indicate' +
+             ' better GPU usage. For GPU memory bandwidth limited workloads, higher' +
+             ' occupancy is indicative of more effective GPU usage. However if the' +
+             ' workload is compute limited, then higher occupancy does not' +
+             ' necessarily correlate with more effective GPU usage.'],
 
         [ 'Tensor Active (%)',
              'The fraction of cycles the tensor (HMMA / IMMA) pipe was active. The' +
-             'value represents an average over a time interval and is not an' +
-             'instantaneous value. Higher values indicate higher utilization of the' +
-             'Tensor Cores. An activity of 100% is equivalent to issuing a' +
-             'tensor instruction every other cycle for the entire time interval.'],
+             ' value represents an average over a time interval and is not an' +
+             ' instantaneous value. Higher values indicate higher utilization of the' +
+             ' Tensor Cores. An activity of 100% is equivalent to issuing a' +
+             ' tensor instruction every other cycle for the entire time interval.'],
 
         [ 'FP Active (%) for FP64, FP32, FP16',
              'The fraction of cycles the respective float-point pipe was' +
-             'active. The value represents an average over a time interval and is' +
-             'not an instantaneous value. Higher values indicate higher utilization' +
-             'of the floating-point cores.'],
+             ' active. The value represents an average over a time interval and is' +
+             ' not an instantaneous value. Higher values indicate higher utilization' +
+             ' of the floating-point cores.'],
         [ 'DRAM Active (%)',
              'The fraction of cycles where data was sent to or received from' +
-             'device memory. The value represents an average over a time' +
-             'interval and is not an instantaneous value. Higher values indicate' +
-             'higher utilization of device memory. An activity of 100% is' +
-             'equivalent to a DRAM instruction every cycle over the entire time' +
-             'interval (in practice a peak of ~0.8 (80%) is the maximum' +
-             'achievable).'],
+             ' device memory. The value represents an average over a time' +
+             ' interval and is not an instantaneous value. Higher values indicate' +
+             ' higher utilization of device memory. An activity of 100% is' +
+             ' equivalent to a DRAM instruction every cycle over the entire time' +
+             ' interval (in practice a peak of ~0.8 (80%) is the maximum' +
+             ' achievable).'],
         [ 'NVLink Send/Recv Bandwidth (byte/s)',
              'The rate of data transmitted / received over NVLink, not' +
-             'including protocol headers. The theoretical maximum NVLink Gen2' +
-             'bandwidth is 25 GB/s per link per direction.' ],
+             ' including protocol headers. The theoretical maximum NVLink Gen2' +
+             ' bandwidth is 25 GB/s per link per direction.' ],
         [ 'PCIe Send/Recv Bandwidth (byte/s)',
              'The rate of data transmitted / received over the PCIe bus, including' +
-             'both protocol headers and data payloads. The theoretical maximum PCIe' +
-             'Gen3 bandwidth is 985 MB/s per lane.']
+             ' both protocol headers and data payloads. The theoretical maximum PCIe' +
+             ' Gen3 bandwidth is 985 MB/s per lane.']
     ]
 
     row_line_counts = []  # to store number of lines per row
@@ -1319,6 +1352,7 @@ def evaluation(pdf, df, metadf):
     table2.auto_set_font_size(False)
 
     first_50util = metadf['GPU_UTIL_time_first50'].item()
+    df50 = df.loc[df["timestamp"] >= first_50util]
 
     fp = df[['DCGM_FI_PROF_PIPE_TENSOR_IMMA_ACTIVE_avg',
              'DCGM_FI_PROF_PIPE_TENSOR_HMMA_ACTIVE_avg',
@@ -1328,8 +1362,19 @@ def evaluation(pdf, df, metadf):
              'DCGM_FI_PROF_PIPE_FP16_ACTIVE_avg',
              'DCGM_FI_PROF_PIPE_INT_ACTIVE_avg',
              ]]
-    fp_avg = fp.sum(axis=1).mean()
-    fp50_avg = fp[first_50util:].sum(axis=1).mean()
+
+    fp50 = df50[
+            ['DCGM_FI_PROF_PIPE_TENSOR_IMMA_ACTIVE_avg',
+             'DCGM_FI_PROF_PIPE_TENSOR_HMMA_ACTIVE_avg',
+             'DCGM_FI_PROF_PIPE_TENSOR_DFMA_ACTIVE_avg',
+             'DCGM_FI_PROF_PIPE_FP64_ACTIVE_avg',
+             'DCGM_FI_PROF_PIPE_FP32_ACTIVE_avg',
+             'DCGM_FI_PROF_PIPE_FP16_ACTIVE_avg',
+             'DCGM_FI_PROF_PIPE_INT_ACTIVE_avg',
+            ]]
+
+    fp_avg   = fp.sum(axis=1).mean()
+    fp50_avg = fp50.sum(axis=1).mean()
 
     add_table_headers(table, table2)
 
@@ -1344,9 +1389,9 @@ def evaluation(pdf, df, metadf):
 
 
     add_double_entry(table, table2, 'GPU Start', 1, start_eval, gpu_run_fraction(), None)
-    add_double_entry(table, table2, 'GPU Util',  2, util_eval, df['DCGM_FI_DEV_GPU_UTIL_avg'].mean(), df['DCGM_FI_DEV_GPU_UTIL_avg'][first_50util:].mean())
+    add_double_entry(table, table2, 'GPU Util',  2, util_eval, df['DCGM_FI_DEV_GPU_UTIL_avg'].mean(), df50['DCGM_FI_DEV_GPU_UTIL_avg'].mean())
     add_double_entry(table, table2, 'Compute Util', 3, fp_eval, fp_avg, fp50_avg)
-    add_double_entry(table, table2, 'Power',     4, power_eval, df['DCGM_FI_DEV_POWER_USAGE_avg'].mean(), df['DCGM_FI_DEV_POWER_USAGE_avg'][first_50util:].mean())
+    add_double_entry(table, table2, 'Power',     4, power_eval, df['DCGM_FI_DEV_POWER_USAGE_avg'].mean(), df50['DCGM_FI_DEV_POWER_USAGE_avg'].mean())
 
     ax.add_table(table)
     ax.add_table(table2)

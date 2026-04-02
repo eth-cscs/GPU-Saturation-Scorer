@@ -373,8 +373,54 @@ void test_write_meta()
             .with_slurm = 1,
         };
         cmdargs_t args = (cmdargs_t){
+            .child_argv = (char *[]){"exe", "one arg. No comma! ->"},
+            .child_argc = 2
+        };
+        write_meta(stdout, &args, &jobenv);
+    }
+    {
+        jobenv_t jobenv = (jobenv_t){
+            .slurm_step = "12",
+            .slurm_rank = "2",
+            .slurm_localid = "0",
+            .slurm_jobid = "4567",
+            .slurm_jobname = "test",
+            .rank0 = 0,
+            .local0 = 1,
+            .slurm_cluster = "test-cluster",
+            .slurm_nnodes = "4",
+            .slurm_ntasks = "128",
+            .slurm_ngpus = "4",
+            .slurm_step_nnodes = "2",
+            .slurm_step_ntasks = "64",
+            .with_slurm = 1,
+        };
+        cmdargs_t args = (cmdargs_t){
             .child_argv = (char *[]){"exe", "arg1", "arg2", "arg3", "multi string arg"},
             .child_argc = 5
+        };
+        write_meta(stdout, &args, &jobenv);
+    }
+    {
+        jobenv_t jobenv = (jobenv_t){
+            .slurm_step = "12",
+            .slurm_rank = "2",
+            .slurm_localid = "0",
+            .slurm_jobid = "4567",
+            .slurm_jobname = "test",
+            .rank0 = 0,
+            .local0 = 1,
+            .slurm_cluster = "test-cluster",
+            .slurm_nnodes = "4",
+            .slurm_ntasks = "128",
+            .slurm_ngpus = "4",
+            .slurm_step_nnodes = "2",
+            .slurm_step_ntasks = "64",
+            .with_slurm = 1,
+        };
+        cmdargs_t args = (cmdargs_t){
+            .child_argv = (char *[]){"escape_test", "a\nb", "a\rb", "a\tb", "\"double quotes\"", "'single quotes'", "\\\"\\\""},
+            .child_argc = 7
         };
         write_meta(stdout, &args, &jobenv);
     }
@@ -385,8 +431,8 @@ void test_write_records()
 //   {
 //   record_t records = (record_t){
 //       .ts;
-//       .gpuId;
-//       .values = {{.fieldId = 
+//       .gpuid;
+//       .values = {{.fieldid = 
 //   };
 //   write_records(stdout, 1, records, 0);
 //   }
@@ -414,5 +460,5 @@ void run_tests()
     test_help();
     test_version();
 
-    printf("\n\nTESTS OK\n");
+    printf("\n\ntests ok\n");
 }
