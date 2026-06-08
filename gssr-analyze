@@ -123,7 +123,7 @@ def load_metrics_and_meta(paths):
                                 fields[key] = value
                                 if key == 'arguments':
                                     fields[key] = [value]
-                        except Error as e:
+                        except Exception as e:
                             print(f'Error reading {meta_file}. Attempting to continue. {e}')
 
                         return fields
@@ -131,6 +131,8 @@ def load_metrics_and_meta(paths):
                     try:
                         metadf = parse_json_with_regex(meta_file)
                         metadf.setdefault('arguments', [])
+                        metadf.setdefault('cluster', 'nocluster')
+                        metadf.setdefault('jobid', '0')
                     except json.decoder.JSONDecodeError as e:
                         print(f'Error reading {meta_file}. Attempting to continue. {e}')
                         metadf = dict(cluster='nocluster', jobid='0', arguments=[])
@@ -241,7 +243,13 @@ def plot_memory_metrics(ax, df, metadf):
         ax[0].set_xlabel('Time (s)')
         ax[0].set_ylabel(f'GPU Memory Usage (GB)', labelpad=10)
 
-        y,bins = mk_histogram(y_avg[first_50util:], 20, (0,100))
+        #print(df)
+        #print(x)
+        #print(y_avg)
+        #print(first_50util)
+        #print(y_avg[first_50util:])
+        y_hist = df.loc[df['timestamp'] >= first_50util, (metric, 'mean')] * scale
+        y,bins = mk_histogram(y_hist, 20, (0,100))
 
         if np.amax(y) < 20:
             xeps, yeps = 0,0
@@ -308,7 +316,8 @@ def plot_txrx_metrics(ax, df, metadf):
     for metric,scale,c,_,_ in cfg:
         y_avg = df[metric,'mean'] * scale
 
-        y,bins = mk_histogram(y_avg[first_50util:], 20, data_range)
+        y_hist = df.loc[df['timestamp'] >= first_50util, (metric, 'mean')] * scale
+        y,bins = mk_histogram(y_hist, 20, data_range)
 
         if np.amax(y) < 20:
             xeps, yeps = 0,0
@@ -375,7 +384,8 @@ def plot_active_metrics_part1(ax, df, metadf):
         # Plot the actual y line over the shaded area
         ax[0].plot(x, y_avg, label=metric, color=c, linewidth=1.0)
 
-        y,bins = mk_histogram(y_avg[first_50util:], 20, (0,100))
+        y_hist = df.loc[df['timestamp'] >= first_50util, (metric, 'mean')] * scale
+        y,bins = mk_histogram(y_hist, 20, (0,100))
 
         if np.amax(y) < 20:
             xeps, yeps = 0,0
@@ -441,7 +451,8 @@ def plot_active_metrics_part2(ax, df, metadf):
         # Plot the actual y line over the shaded area
         ax[0].plot(x, y_avg, label=metric, color=c, linewidth=1.0)
 
-        y,bins = mk_histogram(y_avg[first_50util:], 20, (0,100))
+        y_hist = df.loc[df['timestamp'] >= first_50util, (metric, 'mean')] * scale
+        y,bins = mk_histogram(y_hist, 20, (0,100))
 
         if np.amax(y) < 20:
             xeps, yeps = 0,0
@@ -502,7 +513,8 @@ def plot_energy_metrics(ax, df, metadf):
     add_frosting(ax[0], first_50util)
 
     # Create the distribution plot (right)
-    y,bins = mk_histogram(y_avg[first_50util:], 20, data_range)
+    y_hist = df.loc[df['timestamp'] >= first_50util, (metric, 'mean')] * scale
+    y,bins = mk_histogram(y_hist, 20, data_range)
 
     if np.amax(y) < 20:
         xeps, yeps = 0,0
@@ -574,7 +586,8 @@ def plot_sm_dram_metrics(ax, df, metadf):
         #ax1.grid(alpha=0.8)
 
         # Create the distribution plot (right)
-        y,bins = mk_histogram(y_avg[first_50util:], 20, (0,100))
+        y_hist = df.loc[df['timestamp'] >= first_50util, (metric, 'mean')] * scale
+        y,bins = mk_histogram(y_hist, 20, (0,100))
         yeps = rng.integers(low=0, high=2, size=len(y))
         yeps[y <= 0] = 0
         xeps = rng.integers(low=0, high=2, size=len(y))
@@ -960,12 +973,15 @@ def reduced_df(df, metadf):
 
     agg_df = stats.join(qs).sort_index(axis=1)
     agg_df.reset_index(inplace=True)
+    
+    #print(agg_df)
+    #exit(1)
 
     #agg_df['DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION_avg', 'cumsum'] = agg_df['DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION_avg', 'sum'].cumsum()
 
     vals = agg_df['DCGM_FI_DEV_GPU_UTIL_avg']['mean']
     first_50util = next(
-        (agg_df['timestamp'].iloc[i].item() for i, v in enumerate(vals) if v > 50),
+        (agg_df['timestamp'].iloc[i].item() for i, v in enumerate(vals) if v >= 50),
         len(vals)
     )
     metadf['GPU_UTIL_time_first50'] = first_50util

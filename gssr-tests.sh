@@ -1,6 +1,13 @@
 #!/bin/bash
 
 export SLURM_PARTITION=debug
+export SLURM_PARTITION=normal
+export SLURM_RESERVATION=uss140-shs131-nv590-staging
+export SBATCH_RESERVATION=$SLURM_RESERVATION
+
+DCGMPROFTESTER=/usr/bin/dcgmproftester12
+DCGMPROFTESTER=/usr/bin/true
+
 
 make clean
 make
@@ -66,7 +73,7 @@ function test_00_dir_name()
 function test_01_dcgmproftester()
 {
     rm -rf test-report-01
-    srun -N2 -n6 $GR -o test-report-01 /usr/bin/dcgmproftester12 -t 1006 -d 20 
+    srun -N2 -n6 $GR -o test-report-01 $DCGMPROFTESTER -t 1006 -d 20 
     ls -ltr
     $GA test-report-01 -o test-report-01.pdf
 }
@@ -77,13 +84,13 @@ function test_02_dcgmproftester()
     rm -rf test-report-02b
     rm -rf test-report-02c
 
-    srun -N1 -n1 -t 00:01:00 $GR -o test-report-02a /usr/bin/dcgmproftester12 -t 1006 -d 240 
+    srun -N1 -n1 -t 00:01:00 $GR -o test-report-02a $DCGMPROFTESTER -t 1006 -d 240 
     $GA test-report-02a -o test-report-02a.pdf
 
-    srun -N1 -n4 --gpus-per-task=1 -t 00:01:00 $GR -o test-report-02b /usr/bin/dcgmproftester12 -t 1006 -d 240 
+    srun -N1 -n4 --gpus-per-task=1 -t 00:01:00 $GR -o test-report-02b $DCGMPROFTESTER -t 1006 -d 240 
     $GA test-report-02b -o test-report-02b.pdf
 
-    srun -N32 --ntasks-per-node=4 --gpus-per-task=1 -t 00:10:00 $GR -o test-report-02c /usr/bin/dcgmproftester12 -t 1006 -d 600  --max-processes 1
+    srun -N32 --ntasks-per-node=4 --gpus-per-task=1 -t 00:10:00 $GR -o test-report-02c $DCGMPROFTESTER -t 1006 -d 600  --max-processes 1
     $GA test-report-02c -o test-report-02c.pdf
 }
 
@@ -91,7 +98,7 @@ function test_021_dcgmproftester()
 {
     rm -rf test-report-021
 
-    srun -N1 -n1 -t 00:05:00 $GR -o test-report-021 /usr/bin/dcgmproftester12 -t 1006,1007,1008,1013,1014,1015,1016 -d 20 
+    srun -N1 -n1 -t 00:05:00 $GR -o test-report-021 $DCGMPROFTESTER -t 1006,1007,1008,1013,1014,1015,1016 -d 20 
     $GA test-report-021 -o test-report-021.pdf
 }
 
@@ -99,7 +106,7 @@ function test_01_long_args()
 {
     rm -rf test-report-01
     srun -N2 -n6 $GR -o test-report-01 bash -lc '
-        /usr/bin/dcgmproftester12 
+        $DCGMPROFTESTER 
         -t "1006"
         -d '\''20'\''
         '
@@ -112,16 +119,16 @@ function test_020_dcgmproftester_128n()
 {
     rm -rf test-report-020-large
 
-    srun -N128 --ntasks-per-node=4 -t 00:010:00 $GR -o test-report-020-large /usr/bin/dcgmproftester12 -t 1006 -d 240 
+    srun -N128 --ntasks-per-node=4 -t 00:010:00 $GR -o test-report-020-large $DCGMPROFTESTER -t 1006 -d 240 
     $GA test-report-020-large -o test-report-020.pdf
 }
 
 function test_01_multireport()
 {
     rm -rf test-report-01
-    srun -N2 -n6 $GR -o test-report-01 /usr/bin/dcgmproftester12 -t 1006 -d 20 
-    srun -N2 -n6 $GR -o test-report-01 /usr/bin/dcgmproftester12 -t 1006 -d 20 
-    srun -N2 -n6 $GR -o test-report-01 /usr/bin/dcgmproftester12 -t 1006 -d 20 
+    srun -N2 -n6 $GR -o test-report-01 $DCGMPROFTESTER -t 1006 -d 20 
+    srun -N2 -n6 $GR -o test-report-01 $DCGMPROFTESTER -t 1006 -d 20 
+    srun -N2 -n6 $GR -o test-report-01 $DCGMPROFTESTER -t 1006 -d 20 
     ls -ltr test-report-01
     $GA test-report-01 -o test-report-01-multi.pdf
     for d in $(ls test-report-01); do
@@ -132,14 +139,14 @@ function test_01_multireport()
 function test_03_signal()
 {
     rm -rf test-report-03
-    srun -N1 -n1 --signal=HUP@30 -t 00:01:00 $GR -o test-report-03 /usr/bin/dcgmproftester12 -t 1006 -d 240
+    srun -N1 -n1 --signal=HUP@30 -t 00:01:00 $GR -o test-report-03 $DCGMPROFTESTER -t 1006 -d 240
     $GA test-report-03 -o test-report-03.pdf
 }
 
 function test_04_long_running()
 {
     rm -rf test-report-04
-    srun -N3 -n3 -t 00:30:00 $GR -o test-report-04 /usr/bin/dcgmproftester12 -t 1006 -d 3600 
+    srun -N3 -n3 -t 00:30:00 $GR -o test-report-04 $DCGMPROFTESTER -t 1006 -d 3600 
     $GA test-report-04 -o test-report-04.pdf
 }
 
@@ -153,7 +160,7 @@ function test_05_sphexa()
 function test_06_mps_wrapper()
 {
     rm -rf test-report-06
-    srun -N1 -n32 -t 00:05:00 ./mps-wrapper.sh $GR -o test-report-06 /usr/bin/dcgmproftester12 -t 1006 -d 60 
+    srun -N1 -n32 -t 00:05:00 ./mps-wrapper.sh $GR -o test-report-06 $DCGMPROFTESTER -t 1006 -d 60 
     $GA test-report-06 -o test-report-06.pdf
 }
 
@@ -168,8 +175,8 @@ function test_07_multi_mps_wrapper()
 #SBATCH -A csstaff
 #SBATCH -o test-report-07.slurm.out
 
-srun ./mps-wrapper.sh $GR -o test-report-07 /usr/bin/dcgmproftester12 -t 1006 -d 60 
-srun ./mps-wrapper.sh $GR -o test-report-07 /usr/bin/dcgmproftester12 -t 1007 -d 120 
+srun ./mps-wrapper.sh $GR -o test-report-07 $DCGMPROFTESTER -t 1006 -d 60 
+srun ./mps-wrapper.sh $GR -o test-report-07 $DCGMPROFTESTER -t 1007 -d 120 
 EOF
 
     rm -rf test-report-07
@@ -191,10 +198,10 @@ function test_08_concurrent_srun()
 #SBATCH --exclusive --mem=450G
 
 
-srun -N1 --ntasks-per-node=1 --exclusive --gpus-per-task=1 --cpus-per-gpu=5 --mem=50G  $GR -o test-report-08 /usr/bin/dcgmproftester12 --max-processes 1 -t 1006 -d 20 &
-srun -N1 --ntasks-per-node=1 --exclusive --gpus-per-task=1 --cpus-per-gpu=5 --mem=50G  $GR -o test-report-08 /usr/bin/dcgmproftester12 --max-processes 1 -t 1007 -d 20 &
-srun -N1 --ntasks-per-node=1 --exclusive --gpus-per-task=1 --cpus-per-gpu=5 --mem=50G  $GR -o test-report-08 /usr/bin/dcgmproftester12 --max-processes 1 -t 1008 -d 20 &
-srun -N1 --ntasks-per-node=1 --exclusive --gpus-per-task=1 --cpus-per-gpu=5 --mem=50G  $GR -o test-report-08 /usr/bin/dcgmproftester12 --max-processes 1 -t 1005 -d 20 &
+srun -N1 --ntasks-per-node=1 --exclusive --gpus-per-task=1 --cpus-per-gpu=5 --mem=50G  $GR -o test-report-08 $DCGMPROFTESTER --max-processes 1 -t 1006 -d 20 &
+srun -N1 --ntasks-per-node=1 --exclusive --gpus-per-task=1 --cpus-per-gpu=5 --mem=50G  $GR -o test-report-08 $DCGMPROFTESTER --max-processes 1 -t 1007 -d 20 &
+srun -N1 --ntasks-per-node=1 --exclusive --gpus-per-task=1 --cpus-per-gpu=5 --mem=50G  $GR -o test-report-08 $DCGMPROFTESTER --max-processes 1 -t 1008 -d 20 &
+srun -N1 --ntasks-per-node=1 --exclusive --gpus-per-task=1 --cpus-per-gpu=5 --mem=50G  $GR -o test-report-08 $DCGMPROFTESTER --max-processes 1 -t 1005 -d 20 &
 
 wait
 EOF
@@ -217,8 +224,8 @@ function test_09_overlapping_srun()
 #SBATCH --exclusive --mem=450G
 
 
-srun --overlap -N1 --ntasks-per-node=1 --gpus-per-task=1 --cpus-per-gpu=5 --mem=50G  $GR -o test-report-09 /usr/bin/dcgmproftester12 --max-processes 1 -t 1006 -d 20 &
-srun --overlap -N1 --ntasks-per-node=1 --gpus-per-task=1 --cpus-per-gpu=5 --mem=50G  $GR -o test-report-09 /usr/bin/dcgmproftester12 --max-processes 1 -t 1007 -d 20 &
+srun --overlap -N1 --ntasks-per-node=1 --gpus-per-task=1 --cpus-per-gpu=5 --mem=50G  $GR -o test-report-09 $DCGMPROFTESTER --max-processes 1 -t 1006 -d 20 &
+srun --overlap -N1 --ntasks-per-node=1 --gpus-per-task=1 --cpus-per-gpu=5 --mem=50G  $GR -o test-report-09 $DCGMPROFTESTER --max-processes 1 -t 1007 -d 20 &
 
 wait
 EOF
@@ -276,12 +283,12 @@ function test_12_fake_output()
     mkdir -p fake-output/step_0
     python3 ../fake-csv.py -n 1000 -g 4 -o fake-output/step_0/proc_0.csv
     $GA fake-output -o test-report-12a.pdf
-    rm -rf fake-output/step_0
+#   rm -rf fake-output/step_0
 
-    mkdir -p fake-output/step_0
-    python3 ../fake-csv.py -n 10000 -g 4 -o fake-output/step_0/proc_0.csv
-    $GA fake-output -o test-report-12b.pdf
-    rm -rf fake-output/step_0
+#   mkdir -p fake-output/step_0
+#   python3 ../fake-csv.py -n 10000 -g 4 -o fake-output/step_0/proc_0.csv
+#   $GA fake-output -o test-report-12b.pdf
+#   rm -rf fake-output/step_0
 }
 
 function test_13_newlines_in_meta()
@@ -391,14 +398,14 @@ function test_14_50util_check()
 ##test_05_sphexa
 ##test_06_mps_wrapper
 ##test_07_multi_mps_wrapper
-#test_08_concurrent_srun
-#test_09_overlapping_srun
-#test_10_container
-#test_00_sleep_ga
-#test_11_short_output
-#test_12_fake_output
-#test_13_newlines_in_meta
-#test_13b_correct_arguments
+test_08_concurrent_srun
+test_09_overlapping_srun
+test_10_container
+test_00_sleep_ga
+test_11_short_output
+test_12_fake_output
+test_13_newlines_in_meta
+test_13b_correct_arguments
 test_13c_correct_arguments
-#test_01_long_args
-#test_14_50util_check
+test_01_long_args
+test_14_50util_check
