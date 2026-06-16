@@ -41,10 +41,14 @@ unsigned short fieldIds[] = {
     DCGM_FI_DEV_FB_RESERVED,
     DCGM_FI_PROF_SM_ACTIVE,
     DCGM_FI_PROF_SM_OCCUPANCY,
-    DCGM_FI_PROF_PIPE_TENSOR_ACTIVE,
+    //DCGM_FI_PROF_PIPE_TENSOR_ACTIVE,
+    DCGM_FI_PROF_PIPE_TENSOR_IMMA_ACTIVE,
+    DCGM_FI_PROF_PIPE_TENSOR_HMMA_ACTIVE,
+    DCGM_FI_PROF_PIPE_TENSOR_DFMA_ACTIVE,
     DCGM_FI_PROF_PIPE_FP64_ACTIVE,
     DCGM_FI_PROF_PIPE_FP32_ACTIVE,
     DCGM_FI_PROF_PIPE_FP16_ACTIVE,
+    DCGM_FI_PROF_PIPE_INT_ACTIVE,
     DCGM_FI_PROF_DRAM_ACTIVE,
     DCGM_FI_PROF_PCIE_TX_BYTES,
     DCGM_FI_PROF_PCIE_RX_BYTES,
@@ -66,10 +70,14 @@ char *fieldNames[] = {
     "DCGM_FI_DEV_FB_RESERVED",
     "DCGM_FI_PROF_SM_ACTIVE",
     "DCGM_FI_PROF_SM_OCCUPANCY",
-    "DCGM_FI_PROF_PIPE_TENSOR_ACTIVE",
+    //"DCGM_FI_PROF_PIPE_TENSOR_ACTIVE",
+    "DCGM_FI_PROF_PIPE_TENSOR_IMMA_ACTIVE",
+    "DCGM_FI_PROF_PIPE_TENSOR_HMMA_ACTIVE",
+    "DCGM_FI_PROF_PIPE_TENSOR_DFMA_ACTIVE",
     "DCGM_FI_PROF_PIPE_FP64_ACTIVE",
     "DCGM_FI_PROF_PIPE_FP32_ACTIVE",
     "DCGM_FI_PROF_PIPE_FP16_ACTIVE",
+    "DCGM_FI_PROF_PIPE_INT_ACTIVE",
     "DCGM_FI_PROF_DRAM_ACTIVE",
     "DCGM_FI_PROF_PCIE_TX_BYTES",
     "DCGM_FI_PROF_PCIE_RX_BYTES",
@@ -376,6 +384,55 @@ skip_record:
 }
 
 // ==========================================================================
+// json_escape - Escape strings for proper json handling.
+//
+// input - string to escape
+//
+// Returns new string. Needs to be free'd.
+// ==========================================================================
+char *json_escape(const char *input) 
+{
+    size_t len = 0;
+
+    // First pass: calculate required size
+    for (const char *p = input; *p; p++) 
+    {
+        switch (*p) 
+        {
+            case '\\':
+            case '"':
+            case '\n':
+            case '\r':
+            case '\t':
+                len += 2;
+                break;
+            default:
+                len += 1;
+        }
+    }
+
+    char *out = malloc(len + 1);
+    char *o = out;
+
+    // Second pass: copy with escaping
+    for (const char *p = input; *p; p++) 
+    {
+        switch (*p) 
+        {
+            case '\\': *o++ = '\\'; *o++ = '\\'; break;
+            case '"':  *o++ = '\\'; *o++ = '"';  break;
+            case '\n': *o++ = '\\'; *o++ = 'n';  break;
+            case '\r': *o++ = '\\'; *o++ = 'r';  break;
+            case '\t': *o++ = '\\'; *o++ = 't';  break;
+            default:   *o++ = *p;
+        }
+    }
+
+    *o = '\0';
+    return out;
+}
+
+// ==========================================================================
 // write_meta - Write meta data
 //
 // fp - pointer to open file
@@ -416,12 +473,17 @@ void write_meta(FILE *fp, cmdargs_t *args, jobenv_t *jobenv)
         args->child_argv[0]
     );
 
-    fprintf(fp, "    \"arguments\": \"");
+    fprintf(fp, "    \"arguments\": [\n");
     for (int i=1; i < args->child_argc; i++)
     {
-        fprintf(fp, "'%s' ", args->child_argv[i]);
+        char *esc = json_escape(args->child_argv[i]);
+        fprintf(fp, "      \"%s\"", esc);
+        free(esc);
+        if (i < args->child_argc-1)
+            fprintf(fp, ",");
+        fprintf(fp, "\n");
     }
-    fprintf(fp, "\""  "\n");
+    fprintf(fp, "    ]\n");
 
     fprintf(fp, "}\n\n");
 }

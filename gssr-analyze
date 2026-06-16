@@ -93,16 +93,51 @@ def load_metrics_and_meta(paths):
 
             if len(meta_files) == 0:
                 print(f'Missing metadata file in {step}. Attempting to continue.')
-                metadf = dict(cluster='nocluster', jobid='0')
+                metadf = dict(cluster='nocluster', jobid='0', arguments=[])
             else:
                 meta_file = meta_files[0]
 
                 try:
                     with open(meta_file) as f:
                         metadf = json.load(f)
+
                 except json.decoder.JSONDecodeError as e:
-                    print(f'Error reading {meta_file}. Attempting to continue. {e}')
-                    metadf = dict(cluster='nocluster', jobid='0')
+                    def parse_json_with_regex(filepath: str) -> dict:
+                        fields = {}
+                        try:
+                            with open(filepath, 'r') as f:
+                                content = f.read()
+
+
+                            # Match string values (handles multiline strings)
+                            string_pattern = re.compile(
+                                r'"([\w-]+)"\s*:\s*"(.*?)"(?=\s*[,}])',
+                                re.DOTALL
+                            )
+
+                            for match in string_pattern.finditer(content):
+                                key = match.group(1)
+                                value = match.group(2)
+                                # Unescape any escaped characters
+                                value = value.replace('\\"', '"').replace('\\n', '\n').replace('\\\\', '\\')
+                                fields[key] = value
+                                if key == 'arguments':
+                                    fields[key] = [value]
+                        except Exception as e:
+                            print(f'Error reading {meta_file}. Attempting to continue. {e}')
+
+                        return fields
+
+                    try:
+                        metadf = parse_json_with_regex(meta_file)
+                        metadf.setdefault('arguments', [])
+                        metadf.setdefault('cluster', 'nocluster')
+                        metadf.setdefault('jobid', '0')
+                    except json.decoder.JSONDecodeError as e:
+                        print(f'Error reading {meta_file}. Attempting to continue. {e}')
+                        metadf = dict(cluster='nocluster', jobid='0', arguments=[])
+
+            metadf['arguments'] = ' '.join([json.dumps(s) for s in metadf['arguments']])
 
             m = re.search(r"step_(\d+)$", step)
             istep = int(m.group(1))
@@ -208,7 +243,13 @@ def plot_memory_metrics(ax, df, metadf):
         ax[0].set_xlabel('Time (s)')
         ax[0].set_ylabel(f'GPU Memory Usage (GB)', labelpad=10)
 
-        y,bins = mk_histogram(y_avg[first_50util:], 20, (0,100))
+        #print(df)
+        #print(x)
+        #print(y_avg)
+        #print(first_50util)
+        #print(y_avg[first_50util:])
+        y_hist = df.loc[df['timestamp'] >= first_50util, (metric, 'mean')] * scale
+        y,bins = mk_histogram(y_hist, 20, (0,100))
 
         if np.amax(y) < 20:
             xeps, yeps = 0,0
@@ -275,7 +316,8 @@ def plot_txrx_metrics(ax, df, metadf):
     for metric,scale,c,_,_ in cfg:
         y_avg = df[metric,'mean'] * scale
 
-        y,bins = mk_histogram(y_avg[first_50util:], 20, data_range)
+        y_hist = df.loc[df['timestamp'] >= first_50util, (metric, 'mean')] * scale
+        y,bins = mk_histogram(y_hist, 20, data_range)
 
         if np.amax(y) < 20:
             xeps, yeps = 0,0
@@ -299,7 +341,7 @@ def plot_txrx_metrics(ax, df, metadf):
     l,h = list(zip(*legend))
     ax[0].legend(h,l, ncol=len(legend), loc='lower left', borderpad=0, **dict(frameon=False, bbox_to_anchor=(0.0, 1.0), fontsize=6))
 
-def plot_active_metrics(ax, df, metadf):
+def plot_active_metrics_part1(ax, df, metadf):
     """
     Plot the GPU utilization and Tensor/FP metrics.
 
@@ -317,11 +359,10 @@ def plot_active_metrics(ax, df, metadf):
 
     cfg = [
         ['DCGM_FI_DEV_GPU_UTIL_avg',              1, 'k', 'GPU Util', 'grey'], 
-        ['DCGM_FI_PROF_PIPE_TENSOR_ACTIVE_avg', 100, 'm', 'Tensor', 'violet'], 
-        ['DCGM_FI_PROF_PIPE_FP64_ACTIVE_avg',   100, 'r', 'fp64', 'indianred'],
-        ['DCGM_FI_PROF_PIPE_FP32_ACTIVE_avg',   100, 'g', 'fp32', 'limegreen'],
+        ['DCGM_FI_PROF_PIPE_INT_ACTIVE_avg',    100, 'orange', 'int', 'moccasin'],
         ['DCGM_FI_PROF_PIPE_FP16_ACTIVE_avg',   100, 'b', 'fp16', 'royalblue'],
-        ['DCGM_FI_PROF_DRAM_ACTIVE_avg',        100, 'orange', 'DRAM', 'moccasin']
+        ['DCGM_FI_PROF_PIPE_FP32_ACTIVE_avg',   100, 'g', 'fp32', 'limegreen'],
+        ['DCGM_FI_PROF_PIPE_FP64_ACTIVE_avg',   100, 'r', 'fp64', 'indianred'],
         ]
 
     x = df['timestamp']
@@ -343,7 +384,75 @@ def plot_active_metrics(ax, df, metadf):
         # Plot the actual y line over the shaded area
         ax[0].plot(x, y_avg, label=metric, color=c, linewidth=1.0)
 
-        y,bins = mk_histogram(y_avg[first_50util:], 20, (0,100))
+        y_hist = df.loc[df['timestamp'] >= first_50util, (metric, 'mean')] * scale
+        y,bins = mk_histogram(y_hist, 20, (0,100))
+
+        if np.amax(y) < 20:
+            xeps, yeps = 0,0
+        else:
+            yeps = rng.integers(low=0, high=2, size=len(y))
+            yeps[y <= 0] = 0
+            xeps = rng.integers(low=0, high=2, size=len(y))
+        ax[1].plot(y + yeps, bins[0:-1] + xeps, alpha=0.8, color=c, lw=1.0, drawstyle='steps')
+
+    ax[0].set_xlabel('Time (s)')
+    ax[0].set_ylabel(f'GPU activity (%)', labelpad=10)
+    ax[0].set_ylim(ymin=-5, ymax=105)
+
+    ax[1].set_title('Histogram', fontsize=6)
+    ax[1].set_xlabel('% of Runtime')
+    ax[1].set_xticks([0,25,50,75,100])
+    ax[1].set_xlim(-5, 105)
+    ax[1].set_ylim(ax[0].get_ylim())
+    
+
+    legend = [ [legend_text,   pl.Line2D([0], [0], lw=5, color=c)] for _,_,c,legend_text,_ in cfg ]
+    l,h = list(zip(*legend))
+    ax[0].legend(h,l, ncol=len(legend), loc='lower left', borderpad=0, **dict(frameon=False, bbox_to_anchor=(0.0, 1.0), fontsize=6))
+
+def plot_active_metrics_part2(ax, df, metadf):
+    """
+    Plot the GPU utilization and Tensor/FP metrics.
+
+    Parameters
+    ----------
+    ax : np.array
+        1x2 array of Axes objects
+    df : pandas.DataFrame
+        DataFrame containing all metrics
+
+    Returns
+    -------
+    None
+    """
+
+    cfg = [
+        ['DCGM_FI_PROF_PIPE_TENSOR_HMMA_ACTIVE_avg',100, 'g', 'HMMA (tensor)', 'limegreen'],
+        ['DCGM_FI_PROF_PIPE_TENSOR_DFMA_ACTIVE_avg',100, 'b', 'DFMA (double fused-multiply-add)', 'royalblue'],
+        ['DCGM_FI_PROF_PIPE_TENSOR_IMMA_ACTIVE_avg',100, 'r', 'IMMA (integer tensor)', 'indianred'],
+        ]
+
+    x = df['timestamp']
+
+    first_50util = metadf['GPU_UTIL_time_first50'].item()
+    add_frosting(ax[0], first_50util)
+
+
+    for metric,scale,c,_,fillc in cfg:
+        #y_avg = df[metric,'mean'] * scale
+        #min_y = df[metric,'min'] * scale
+        #max_y = df[metric,'max'] * scale
+        y_avg = df[metric,'mean'] * scale
+        min_y = df[metric,'q10'] * scale
+        max_y = df[metric,'q90'] * scale
+
+        ax[0].fill_between(x, min_y, max_y, color=fillc, alpha=0.5, lw=1, ec='none')
+
+        # Plot the actual y line over the shaded area
+        ax[0].plot(x, y_avg, label=metric, color=c, linewidth=1.0)
+
+        y_hist = df.loc[df['timestamp'] >= first_50util, (metric, 'mean')] * scale
+        y,bins = mk_histogram(y_hist, 20, (0,100))
 
         if np.amax(y) < 20:
             xeps, yeps = 0,0
@@ -404,7 +513,8 @@ def plot_energy_metrics(ax, df, metadf):
     add_frosting(ax[0], first_50util)
 
     # Create the distribution plot (right)
-    y,bins = mk_histogram(y_avg[first_50util:], 20, data_range)
+    y_hist = df.loc[df['timestamp'] >= first_50util, (metric, 'mean')] * scale
+    y,bins = mk_histogram(y_hist, 20, data_range)
 
     if np.amax(y) < 20:
         xeps, yeps = 0,0
@@ -430,9 +540,9 @@ def plot_energy_metrics(ax, df, metadf):
     ax[0].legend(h,l, ncol=len(legend), loc='lower left', borderpad=0, **dict(frameon=False, bbox_to_anchor=(0.0, 1.0), fontsize=6))
 
 
-def plot_sm_metrics(ax, df, metadf):
+def plot_sm_dram_metrics(ax, df, metadf):
     """
-    Plot the GPU SM active and occupancy metrics.
+    Plot the GPU SM/DRAM activity and SM occupancy metrics.
 
     Parameters
     ----------
@@ -448,7 +558,8 @@ def plot_sm_metrics(ax, df, metadf):
 
     cfgs = [
         ['DCGM_FI_PROF_SM_ACTIVE_avg',      100, 'green', 'SM Active', 'limegreen'], 
-        ['DCGM_FI_PROF_SM_OCCUPANCY_avg',   100, 'red', 'SM Occupancy', 'indianred']]
+        ['DCGM_FI_PROF_SM_OCCUPANCY_avg',   100, 'red', 'SM Occupancy', 'indianred'],
+        ['DCGM_FI_PROF_DRAM_ACTIVE_avg',    100, 'orange', 'DRAM', 'moccasin']]
 
     x = df['timestamp']
 
@@ -475,7 +586,8 @@ def plot_sm_metrics(ax, df, metadf):
         #ax1.grid(alpha=0.8)
 
         # Create the distribution plot (right)
-        y,bins = mk_histogram(y_avg[first_50util:], 20, (0,100))
+        y_hist = df.loc[df['timestamp'] >= first_50util, (metric, 'mean')] * scale
+        y,bins = mk_histogram(y_hist, 20, (0,100))
         yeps = rng.integers(low=0, high=2, size=len(y))
         yeps[y <= 0] = 0
         xeps = rng.integers(low=0, high=2, size=len(y))
@@ -689,11 +801,11 @@ def definitions_page(pdf):
         [ 'GPU Memory (MB) Used/Free/Reserved',
              'Used/Free/Reserved Frame Buffer of the GPU in MB' ],
         [ 'GPU Utilization (%)',
-             ('The fraction of time any portion of the graphics or compute engines'
+             'The fraction of time any portion of the graphics or compute engines'
              ' were active. The graphics engine is active if a graphics/compute'
              ' context is bound and the graphics/compute pipe is busy. The value'
              ' represents an average over a time interval and is not an instantaneous'
-             ' value.')],
+             ' value.'],
         [ 'SM Active (%)',
              'The fraction of time at least one warp was active on a' +
              ' multiprocessor, averaged over all multiprocessors. Note that "active"' +
@@ -703,42 +815,42 @@ def definitions_page(pdf):
              ' value. '],
         [ 'SM Occupancy (%)',
              'The fraction of resident warps on a multiprocessor, relative to the' +
-             'maximum number of concurrent warps supported on a multiprocessor. The' +
-             'value represents an average over a time interval and is not an' +
-             'instantaneous value. Higher occupancy does not necessarily indicate' +
-             'better GPU usage. For GPU memory bandwidth limited workloads, higher' +
-             'occupancy is indicative of more effective GPU usage. However if the' +
-             'workload is compute limited, then higher occupancy does not' +
-             'necessarily correlate with more effective GPU usage.'],
+             ' maximum number of concurrent warps supported on a multiprocessor. The' +
+             ' value represents an average over a time interval and is not an' +
+             ' instantaneous value. Higher occupancy does not necessarily indicate' +
+             ' better GPU usage. For GPU memory bandwidth limited workloads, higher' +
+             ' occupancy is indicative of more effective GPU usage. However if the' +
+             ' workload is compute limited, then higher occupancy does not' +
+             ' necessarily correlate with more effective GPU usage.'],
 
         [ 'Tensor Active (%)',
              'The fraction of cycles the tensor (HMMA / IMMA) pipe was active. The' +
-             'value represents an average over a time interval and is not an' +
-             'instantaneous value. Higher values indicate higher utilization of the' +
-             'Tensor Cores. An activity of 100% is equivalent to issuing a' +
-             'tensor instruction every other cycle for the entire time interval.'],
+             ' value represents an average over a time interval and is not an' +
+             ' instantaneous value. Higher values indicate higher utilization of the' +
+             ' Tensor Cores. An activity of 100% is equivalent to issuing a' +
+             ' tensor instruction every other cycle for the entire time interval.'],
 
         [ 'FP Active (%) for FP64, FP32, FP16',
              'The fraction of cycles the respective float-point pipe was' +
-             'active. The value represents an average over a time interval and is' +
-             'not an instantaneous value. Higher values indicate higher utilization' +
-             'of the floating-point cores.'],
+             ' active. The value represents an average over a time interval and is' +
+             ' not an instantaneous value. Higher values indicate higher utilization' +
+             ' of the floating-point cores.'],
         [ 'DRAM Active (%)',
              'The fraction of cycles where data was sent to or received from' +
-             'device memory. The value represents an average over a time' +
-             'interval and is not an instantaneous value. Higher values indicate' +
-             'higher utilization of device memory. An activity of 100% is' +
-             'equivalent to a DRAM instruction every cycle over the entire time' +
-             'interval (in practice a peak of ~0.8 (80%) is the maximum' +
-             'achievable).'],
+             ' device memory. The value represents an average over a time' +
+             ' interval and is not an instantaneous value. Higher values indicate' +
+             ' higher utilization of device memory. An activity of 100% is' +
+             ' equivalent to a DRAM instruction every cycle over the entire time' +
+             ' interval (in practice a peak of ~0.8 (80%) is the maximum' +
+             ' achievable).'],
         [ 'NVLink Send/Recv Bandwidth (byte/s)',
              'The rate of data transmitted / received over NVLink, not' +
-             'including protocol headers. The theoretical maximum NVLink Gen2' +
-             'bandwidth is 25 GB/s per link per direction.' ],
+             ' including protocol headers. The theoretical maximum NVLink Gen2' +
+             ' bandwidth is 25 GB/s per link per direction.' ],
         [ 'PCIe Send/Recv Bandwidth (byte/s)',
              'The rate of data transmitted / received over the PCIe bus, including' +
-             'both protocol headers and data payloads. The theoretical maximum PCIe' +
-             'Gen3 bandwidth is 985 MB/s per lane.']
+             ' both protocol headers and data payloads. The theoretical maximum PCIe' +
+             ' Gen3 bandwidth is 985 MB/s per lane.']
     ]
 
     row_line_counts = []  # to store number of lines per row
@@ -805,10 +917,10 @@ def plots(pdf, df, metadf):
         'ytick.labelsize': 6,
     })
 
-    nr, nc = 5,2
+    nr, nc = 6,2
     fig, axes = pl.subplots(nrows=nr, ncols=nc, figsize=(8, 11),
                             squeeze=False, sharey='row', 
-                            gridspec_kw=dict(wspace=0.1, hspace=.4, width_ratios=[6,2]))
+                            gridspec_kw=dict(wspace=0.1, hspace=.5, bottom=0.05, width_ratios=[6,2]))
 
     fig.text(
         0.1, 0.95,
@@ -829,10 +941,11 @@ def plots(pdf, df, metadf):
     )
 
     plot_memory_metrics(axes[0,:], df, metadf)
-    plot_active_metrics(axes[1,:], df, metadf)
-    plot_sm_metrics(axes[2,:], df, metadf)
-    plot_txrx_metrics(axes[3,:], df, metadf)
-    plot_energy_metrics(axes[4,:], df, metadf)
+    plot_active_metrics_part1(axes[1,:], df, metadf)
+    plot_active_metrics_part2(axes[2,:], df, metadf)
+    plot_sm_dram_metrics(axes[3,:], df, metadf)
+    plot_txrx_metrics(axes[4,:], df, metadf)
+    plot_energy_metrics(axes[5,:], df, metadf)
 
     pdf.savefig(fig)
     pl.close(fig)
@@ -860,19 +973,22 @@ def reduced_df(df, metadf):
 
     agg_df = stats.join(qs).sort_index(axis=1)
     agg_df.reset_index(inplace=True)
+    
+    #print(agg_df)
+    #exit(1)
 
     #agg_df['DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION_avg', 'cumsum'] = agg_df['DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION_avg', 'sum'].cumsum()
 
     vals = agg_df['DCGM_FI_DEV_GPU_UTIL_avg']['mean']
     first_50util = next(
-        (agg_df['timestamp'].iloc[i].item() for i, v in enumerate(vals) if v > 50),
+        (agg_df['timestamp'].iloc[i].item() for i, v in enumerate(vals) if v >= 50),
         len(vals)
     )
     metadf['GPU_UTIL_time_first50'] = first_50util
 
     return agg_df
 
-def heatmaps(pdf, df, metadf):
+def heatmaps_part1(pdf, df, metadf):
     """
     Draw a page of heatmaps for the Tensor and FP metrics
 
@@ -920,10 +1036,115 @@ def heatmaps(pdf, df, metadf):
     )
 
     cfg = [
-        ['DCGM_FI_PROF_PIPE_TENSOR_ACTIVE_avg', 100, 'm', 'Tensor', 'Purples'], 
         ['DCGM_FI_PROF_PIPE_FP64_ACTIVE_avg',   100, 'r', 'fp64',   'Reds'],
         ['DCGM_FI_PROF_PIPE_FP32_ACTIVE_avg',   100, 'g', 'fp32',   'Greens'],
         ['DCGM_FI_PROF_PIPE_FP16_ACTIVE_avg',   100, 'b', 'fp16',   'Blues'],
+        ['DCGM_FI_PROF_PIPE_INT_ACTIVE_avg',    100, 'orange', 'Integer', 'Oranges'], 
+        ]
+
+    from packaging import version
+    if version.parse(mpl.__version__) >= version.parse("3.7"):
+        cmap_func = mpl.colormaps.get_cmap
+    else:
+        cmap_func = cm.get_cmap
+
+
+    for i,[metric,scale,c,label,cmap] in enumerate(cfg):
+        ax1 = axes[i,0]
+
+        xy = df.pivot(
+            index=['proc', 'gpuId'],   # unique GPU identifier
+            columns='timestamp',       # columns = time
+            values=metric              # values to populate the matrix
+        )
+
+        xy = xy.reindex(columns=np.arange(df['timestamp'].max()))
+        vals = np.ma.masked_invalid(xy.to_numpy() * scale)
+
+        x = range(len(xy.columns)+1)
+        y = range(len(xy.index)+1)
+
+        clrs = copy.copy(cmap_func('viridis'))
+        #clrs = copy.copy(cmap_func('plasma'))
+        #clrs = copy.copy(cmap_func(cmap))
+        clrs.set_under('white')
+        clrs.set_over('red')
+
+        im = ax1.pcolormesh(
+            x,
+            y,
+            vals,
+            shading="flat",
+            vmin=1, vmax=100, cmap=clrs,
+            rasterized=True,
+            snap=True,
+        )
+
+        first_50util = metadf['GPU_UTIL_time_first50'].item()
+        add_frosting(ax1, first_50util)
+
+        cbar = pl.colorbar(im, ax=ax1, extend='both')
+
+        ax1.set_xlabel('Time (s)')
+        ax1.set_ylabel(f'GPU Index', labelpad=10)
+        ax1.set_title(f'{label} activity (%)')
+        ax1.yaxis.set_major_locator(MaxNLocator(integer=True))
+
+
+    pdf.savefig(fig)
+    pl.close(fig)
+
+def heatmaps_part2(pdf, df, metadf):
+    """
+    Draw a page of heatmaps for the Tensor and FP metrics
+
+    Parameters
+    ----------
+    pdf : 
+        The open pdf file handle to save the title page figure into.
+    df : pandas.DataFrame
+        DataFrame containing job metrics.
+
+    Returns
+    -------
+    None
+    """
+
+    pl.rcParams.update({
+        'font.family': 'sans-serif',
+        'font.size': 10,
+        'axes.labelsize': 8,
+        'legend.fontsize': 8,
+        'xtick.labelsize': 6,
+        'ytick.labelsize': 6,
+    })
+
+    nr, nc = 3,1
+    fig, axes = pl.subplots(nrows=nr, ncols=nc, figsize=(8, 11),
+                            squeeze=False, sharey='row', 
+                            gridspec_kw=dict(wspace=0.1, hspace=.4, width_ratios=[1]))
+    fig.text(
+        0.1, 0.95,
+        'Individual GPU Performance Metrics',
+        ha='left',
+        va='top',
+        fontsize=16,
+        fontweight='bold'
+    )
+
+    fig.text(
+        0.1, 0.925,
+        'Data from all GPUs.',
+        ha='left',
+        va='top',
+        fontsize=10,
+        #fontweight='bold'
+    )
+
+    cfg = [
+        ['DCGM_FI_PROF_PIPE_TENSOR_HMMA_ACTIVE_avg', 100, 'g', 'Tensor',   'Greens'],
+        ['DCGM_FI_PROF_PIPE_TENSOR_DFMA_ACTIVE_avg', 100, 'b', 'Double FMA',   'Blues'],
+        ['DCGM_FI_PROF_PIPE_TENSOR_IMMA_ACTIVE_avg', 100, 'r', 'Integer tensor', 'Reds'], 
         ]
 
     from packaging import version
@@ -1147,13 +1368,29 @@ def evaluation(pdf, df, metadf):
     table2.auto_set_font_size(False)
 
     first_50util = metadf['GPU_UTIL_time_first50'].item()
+    df50 = df.loc[df["timestamp"] >= first_50util]
 
-    fp = df[['DCGM_FI_PROF_PIPE_TENSOR_ACTIVE_avg',
+    fp = df[['DCGM_FI_PROF_PIPE_TENSOR_IMMA_ACTIVE_avg',
+             'DCGM_FI_PROF_PIPE_TENSOR_HMMA_ACTIVE_avg',
+             'DCGM_FI_PROF_PIPE_TENSOR_DFMA_ACTIVE_avg',
              'DCGM_FI_PROF_PIPE_FP64_ACTIVE_avg',
              'DCGM_FI_PROF_PIPE_FP32_ACTIVE_avg',
-             'DCGM_FI_PROF_PIPE_FP16_ACTIVE_avg']]
-    fp_avg = fp.sum(axis=1).mean()
-    fp50_avg = fp[first_50util:].sum(axis=1).mean()
+             'DCGM_FI_PROF_PIPE_FP16_ACTIVE_avg',
+             'DCGM_FI_PROF_PIPE_INT_ACTIVE_avg',
+             ]]
+
+    fp50 = df50[
+            ['DCGM_FI_PROF_PIPE_TENSOR_IMMA_ACTIVE_avg',
+             'DCGM_FI_PROF_PIPE_TENSOR_HMMA_ACTIVE_avg',
+             'DCGM_FI_PROF_PIPE_TENSOR_DFMA_ACTIVE_avg',
+             'DCGM_FI_PROF_PIPE_FP64_ACTIVE_avg',
+             'DCGM_FI_PROF_PIPE_FP32_ACTIVE_avg',
+             'DCGM_FI_PROF_PIPE_FP16_ACTIVE_avg',
+             'DCGM_FI_PROF_PIPE_INT_ACTIVE_avg',
+            ]]
+
+    fp_avg   = fp.sum(axis=1).mean()
+    fp50_avg = fp50.sum(axis=1).mean()
 
     add_table_headers(table, table2)
 
@@ -1168,9 +1405,9 @@ def evaluation(pdf, df, metadf):
 
 
     add_double_entry(table, table2, 'GPU Start', 1, start_eval, gpu_run_fraction(), None)
-    add_double_entry(table, table2, 'GPU Util',  2, util_eval, df['DCGM_FI_DEV_GPU_UTIL_avg'].mean(), df['DCGM_FI_DEV_GPU_UTIL_avg'][first_50util:].mean())
-    add_double_entry(table, table2, 'FP Util',   3, fp_eval, fp_avg, fp50_avg)
-    add_double_entry(table, table2, 'Power',     4, power_eval, df['DCGM_FI_DEV_POWER_USAGE_avg'].mean(), df['DCGM_FI_DEV_POWER_USAGE_avg'][first_50util:].mean())
+    add_double_entry(table, table2, 'GPU Util',  2, util_eval, df['DCGM_FI_DEV_GPU_UTIL_avg'].mean(), df50['DCGM_FI_DEV_GPU_UTIL_avg'].mean())
+    add_double_entry(table, table2, 'Compute Util', 3, fp_eval, fp_avg, fp50_avg)
+    add_double_entry(table, table2, 'Power',     4, power_eval, df['DCGM_FI_DEV_POWER_USAGE_avg'].mean(), df50['DCGM_FI_DEV_POWER_USAGE_avg'].mean())
 
     ax.add_table(table)
     ax.add_table(table2)
@@ -1207,7 +1444,8 @@ def one_report(pdf, metadf, df):
     title_page(pdf, df, metadf)
     evaluation(pdf, df, metadf)
     plots(pdf, rdf, metadf)
-    heatmaps(pdf, df, metadf)
+    heatmaps_part1(pdf, df, metadf)
+    heatmaps_part2(pdf, df, metadf)
     tables(pdf, rdf, metadf)
 
 def report(paths, pdfname):
