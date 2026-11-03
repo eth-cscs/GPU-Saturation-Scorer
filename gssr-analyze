@@ -1147,13 +1147,15 @@ def evaluation(pdf, df, metadf):
     table2.auto_set_font_size(False)
 
     first_50util = metadf['GPU_UTIL_time_first50'].item()
+    # df has one row per GPU per sample, so select by timestamp, not row position
+    after50 = df['timestamp'] >= first_50util
 
     fp = df[['DCGM_FI_PROF_PIPE_TENSOR_ACTIVE_avg',
              'DCGM_FI_PROF_PIPE_FP64_ACTIVE_avg',
              'DCGM_FI_PROF_PIPE_FP32_ACTIVE_avg',
              'DCGM_FI_PROF_PIPE_FP16_ACTIVE_avg']]
     fp_avg = fp.sum(axis=1).mean()
-    fp50_avg = fp[first_50util:].sum(axis=1).mean()
+    fp50_avg = fp[after50].sum(axis=1).mean()
 
     add_table_headers(table, table2)
 
@@ -1168,9 +1170,9 @@ def evaluation(pdf, df, metadf):
 
 
     add_double_entry(table, table2, 'GPU Start', 1, start_eval, gpu_run_fraction(), None)
-    add_double_entry(table, table2, 'GPU Util',  2, util_eval, df['DCGM_FI_DEV_GPU_UTIL_avg'].mean(), df['DCGM_FI_DEV_GPU_UTIL_avg'][first_50util:].mean())
+    add_double_entry(table, table2, 'GPU Util',  2, util_eval, df['DCGM_FI_DEV_GPU_UTIL_avg'].mean(), df['DCGM_FI_DEV_GPU_UTIL_avg'][after50].mean())
     add_double_entry(table, table2, 'FP Util',   3, fp_eval, fp_avg, fp50_avg)
-    add_double_entry(table, table2, 'Power',     4, power_eval, df['DCGM_FI_DEV_POWER_USAGE_avg'].mean(), df['DCGM_FI_DEV_POWER_USAGE_avg'][first_50util:].mean())
+    add_double_entry(table, table2, 'Power',     4, power_eval, df['DCGM_FI_DEV_POWER_USAGE_avg'].mean(), df['DCGM_FI_DEV_POWER_USAGE_avg'][after50].mean())
 
     ax.add_table(table)
     ax.add_table(table2)
